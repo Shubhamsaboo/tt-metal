@@ -4,6 +4,7 @@
 
 import importlib.machinery
 import sys
+import signal
 import os
 import io
 import subprocess
@@ -11,14 +12,18 @@ import time
 
 from loguru import logger
 
-from tt_metal.tools.profiler.common import TT_METAL_HOME, PROFILER_BIN_DIR, PROFILER_LOGS_DIR
-
-TRACY_MODULE_PATH = TT_METAL_HOME / "tt_metal/third_party/tracy"
-TRACY_FILE_NAME = "tracy_profile_log_host.tracy"
-TRACY_CSV_FILE_NAME = "tracy_profile_log_host.csv"
-
-TRACY_CAPTURE_TOOL = "capture"
-TRACY_CSVEXPROT_TOOL = "csvexport"
+from tt_metal.tools.profiler.common import (
+    TT_METAL_HOME,
+    PROFILER_BIN_DIR,
+    PROFILER_LOGS_DIR,
+    PROFILER_SCRIPTS_ROOT,
+    TRACY_MODULE_PATH,
+    TRACY_FILE_NAME,
+    TRACY_OPS_TIMES_FILE_NAME,
+    TRACY_OPS_DATA_FILE_NAME,
+    TRACY_CAPTURE_TOOL,
+    TRACY_CSVEXPROT_TOOL,
+)
 
 import tracy_state
 
@@ -142,16 +147,31 @@ def generate_report():
             f"tracy capture output file {tracyOutFile} was not generated. Run in verbose (-v) mode to see tracy capture info"
         )
         return
-    with open(PROFILER_LOGS_DIR / TRACY_CSV_FILE_NAME, "w") as csvFile:
+    with open(PROFILER_LOGS_DIR / TRACY_OPS_TIMES_FILE_NAME, "w") as csvFile:
         subprocess.run(
-            f"{PROFILER_BIN_DIR / TRACY_CSVEXPROT_TOOL} -u {PROFILER_LOGS_DIR / TRACY_FILE_NAME}",
+            f"{PROFILER_BIN_DIR / TRACY_CSVEXPROT_TOOL} -u -f TT_DNN {PROFILER_LOGS_DIR / TRACY_FILE_NAME}",
             shell=True,
             check=True,
             stdout=csvFile,
             stderr=subprocess.DEVNULL,
         )
 
-    logger.info(f"Host side profiling report generated at {PROFILER_LOGS_DIR / TRACY_CSV_FILE_NAME}")
+    logger.info(f"Host side ops time report generated at {PROFILER_LOGS_DIR / TRACY_OPS_TIMES_FILE_NAME}")
+
+    with open(PROFILER_LOGS_DIR / TRACY_OPS_DATA_FILE_NAME, "w") as csvFile:
+        subprocess.run(
+            f'{PROFILER_BIN_DIR / TRACY_CSVEXPROT_TOOL} -m -s ";" {PROFILER_LOGS_DIR / TRACY_FILE_NAME}',
+            shell=True,
+            check=True,
+            stdout=csvFile,
+            stderr=subprocess.DEVNULL,
+        )
+
+    logger.info(f"Host side ops data report generated at {PROFILER_LOGS_DIR / TRACY_OPS_DATA_FILE_NAME}")
+
+    postProcessCmd = f"{PROFILER_SCRIPTS_ROOT}/process_ops_logs.py --date"
+
+    os.system(postProcessCmd)
 
 
 def main():
@@ -220,7 +240,15 @@ def main():
             osCmd = " ".join(originalArgs[1:])
 
             testCommand = f"python -m tracy {osCmd}"
-            testProcess = subprocess.Popen([testCommand], shell=True, env=dict(os.environ))
+            testProcess = subprocess.Popen([testCommand], shell=True, env=dict(os.environ), preexec_fn=os.setsid)
+
+            def signal_handler(sig, frame):
+                os.killpg(os.getpgid(testProcess.pid), signal.SIGTERM)
+                captureProcess.terminate()
+                captureProcess.communicate()
+                sys.exit(3)
+
+            signal.signal(signal.SIGINT, signal_handler)
 
             testProcess.communicate()
             logger.info(f"Test fully finished. Waiting for tracy capture tool to finish ...")
