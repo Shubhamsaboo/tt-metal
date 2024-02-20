@@ -51,7 +51,8 @@ def run_tt_lib_test(
     pytorch_out = pytorch_op(*tensor_inputs, **test_args)
 
     result, output = output_comparison_func(pytorch_out, tt_lib_out)
-
+    print("result = ", tt_lib_out)
+    print("output = ", pytorch_out)
     if plot_func is not None:
         test_name = str(pytorch_op).split()[1]
         plot_func(test_name, *tensor_inputs, pytorch_out, tt_lib_out)
