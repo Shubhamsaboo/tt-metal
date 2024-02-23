@@ -898,6 +898,8 @@ Backward Operations
 
 .. autofunction:: tt_lib.tensor.hypot_bw
 
+.. autofunction:: tt_lib.tensor.repeat_bw
+
 Loss Functions
 ==============
 

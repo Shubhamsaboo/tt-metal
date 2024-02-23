@@ -103,6 +103,8 @@ std::vector<Tensor> exp2_bw(const Tensor& grad, const Tensor& input, const Memor
 
 std::vector<Tensor> expm1_bw(const Tensor& grad, const Tensor& input, const MemoryConfig& output_mem_config = operation::DEFAULT_OUTPUT_MEMORY_CONFIG);
 
+std::vector<Tensor> repeat_bw(const Tensor& grad, const Tensor& input, const Shape& shape, const MemoryConfig& output_mem_config);
+
 } //namespace tt_metal
 
 } //namespace tt
