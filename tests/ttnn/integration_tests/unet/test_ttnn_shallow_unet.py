@@ -180,6 +180,7 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c7_2["deallocate_activation"] = True
             ttnn_module_args.c7_3["deallocate_activation"] = True
             ttnn_module_args.c7["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
+            ttnn_module_args.c7["padded_input_channels"] = 48
             ttnn_module_args.c7_2["conv_blocking_and_parallelization_config_override"] = None
             ttnn_module_args.c7_3["conv_blocking_and_parallelization_config_override"] = None
 
