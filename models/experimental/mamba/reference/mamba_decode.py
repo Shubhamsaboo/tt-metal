@@ -23,7 +23,7 @@ import tt_lib
 
 
 def generate_through_selective_scan(
-    model, tokenizer, prompt: str, n_tokens_to_gen: int = 51, sample: bool = False, top_k: int = None
+    model, tokenizer, prompt: str, n_tokens_to_gen: int = 30, sample: bool = False, top_k: int = None
 ):
     model.eval()
 
@@ -55,10 +55,9 @@ def generate_through_selective_scan(
 
 
 def generate_through_decode(
-    model, tokenizer, prompt: str, n_tokens_to_gen: int = 51, sample: bool = False, top_k: int = None
+    model, tokenizer, prompt: str, n_tokens_to_gen: int = 30, sample: bool = False, top_k: int = None
 ):
     model.eval()
-
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     prompt_token_counts = len(input_ids[0])
     promt_plus_generated_n_tokens = prompt_token_counts + n_tokens_to_gen - 1
@@ -99,19 +98,19 @@ def test_decode():
     #     'state-spaces/mamba-370m'
     #     'state-spaces/mamba-130m'
     pretrained_model_name = "state-spaces/mamba-370m"
-
+    prompt = "Who is the captain of indian cricket team?"
     model = Mamba.from_pretrained(pretrained_model_name)
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
     print("Output from selective scan:")
-    print(generate_through_selective_scan(model, tokenizer, "Mamba is the"))
+    print(generate_through_selective_scan(model, tokenizer, prompt))
 
     from decode_model import MambaDecode
 
     model_decode = MambaDecode.from_pretrained(pretrained_model_name)
     print("Output from decode only mode:")
-    print(generate_through_decode(model_decode, tokenizer, "Mamba is the"))
+    print(generate_through_decode(model_decode, tokenizer, prompt))
 
-    from models.demos.mamba.tt.full_model import MambaTT
+    from models.experimental.mamba.tt.full_model import MambaTT
 
     tt_device = tt_lib.device.CreateDevice(0)
     tt_lib.device.SetDefaultDevice(tt_device)
@@ -119,7 +118,7 @@ def test_decode():
     hf_reference_model = MambaDecode.from_pretrained(pretrained_model_name)
     tt_model_decode = MambaTT(hf_reference_model, tt_device)
     print("Output from decode only mode through metal:")
-    print(generate_through_decode(tt_model_decode, tokenizer, "Mamba is the"))
+    print(generate_through_decode(tt_model_decode, tokenizer, prompt, device="metal"))
 
 
 if __name__ == "__main__":

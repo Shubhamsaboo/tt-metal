@@ -7,9 +7,9 @@ import pytest
 from loguru import logger
 
 import tt_lib
-from models.demos.mamba.tt.full_model import TtTensorLoader
-from models.demos.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
-from models.demos.mamba.tt.mamba_one_step_ssm import TtMambaSSM
+from models.experimental.mamba.tt.full_model import TtTensorLoader
+from models.experimental.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
+from models.experimental.mamba.tt.mamba_one_step_ssm import TtMambaSSM
 from models.utility_functions import torch2tt_tensor, tt2torch_tensor
 from tests.tt_eager.python_api_testing.sweep_tests.comparison_funcs import (
     comp_allclose,

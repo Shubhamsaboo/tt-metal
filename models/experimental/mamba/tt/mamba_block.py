@@ -10,8 +10,8 @@ from typing import Callable
 
 from models.utility_functions import tt2torch_tensor, torch2tt_tensor
 from models.helper_funcs import Linear
-from models.demos.mamba.reference.args import ModelArgs
-from models.demos.mamba.tt.mamba_one_step_ssm import TtMambaSSM
+from models.experimental.mamba.reference.args import ModelArgs
+from models.experimental.mamba.tt.mamba_one_step_ssm import TtMambaSSM
 
 
 class TtMambaBlock(torch.nn.Module):

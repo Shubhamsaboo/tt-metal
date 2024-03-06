@@ -8,8 +8,8 @@ from loguru import logger
 from transformers import AutoTokenizer
 
 import tt_lib
-from models.demos.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
-from models.demos.mamba.tt.full_model import MambaTT
+from models.experimental.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
+from models.experimental.mamba.tt.full_model import MambaTT
 from models.utility_functions import torch2tt_tensor, tt2torch_tensor
 from tests.tt_eager.python_api_testing.sweep_tests.comparison_funcs import (
     comp_allclose,

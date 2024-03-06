@@ -11,7 +11,7 @@ from typing import Callable
 import tt_lib
 
 from models.utility_functions import torch2tt_tensor, tt2torch_tensor
-from models.demos.mamba.tt.residual_block import TtResidualBlock
+from models.experimental.mamba.tt.residual_block import TtResidualBlock
 
 
 class TtTensorLoader:

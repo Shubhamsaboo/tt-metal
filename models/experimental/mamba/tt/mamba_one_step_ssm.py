@@ -10,7 +10,7 @@ from typing import Callable
 
 from models.utility_functions import torch2tt_tensor
 from models.helper_funcs import Linear
-from models.demos.mamba.reference.args import ModelArgs
+from models.experimental.mamba.reference.args import ModelArgs
 
 
 class TtMambaSSM(torch.nn.Module):
@@ -114,7 +114,13 @@ class TtMambaSSM(torch.nn.Module):
         )
 
         self.tt_hidden_state = tt_lib.tensor.add(delta_A_h, delta_B_x)
-        self.output = tt_lib.tensor.bmm(self.tt_hidden_state, C)
+        self.output = tt_lib.tensor.bmm(
+            self.tt_hidden_state,
+            C,
+            kernel_config=tt_lib.tensor.WormholeComputeKernelConfig(
+                math_fidelity=tt_lib.tensor.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True
+            ),
+        )
         C.deallocate()
         x = tt_lib.tensor.mul(self.D, x)
         self.output = tt_lib.tensor.add(self.output, x)

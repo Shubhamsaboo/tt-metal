@@ -7,9 +7,9 @@ import pytest
 from loguru import logger
 
 import tt_lib
-from models.demos.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
-from models.demos.mamba.tt.full_model import TtTensorLoader
-from models.demos.mamba.tt.residual_block import TtResidualBlock
+from models.experimental.mamba.tt.full_model import TtTensorLoader
+from models.experimental.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
+from models.experimental.mamba.tt.mamba_block import TtMambaBlock
 from models.utility_functions import torch2tt_tensor, tt2torch_tensor
 from tests.tt_eager.python_api_testing.sweep_tests.comparison_funcs import (
     comp_allclose,
@@ -17,10 +17,10 @@ from tests.tt_eager.python_api_testing.sweep_tests.comparison_funcs import (
 )
 
 
-class PytorchResidualBlock(torch.nn.Module):
+class PytorchMambaBlock(torch.nn.Module):
     def __init__(self, hf_reference_model, layer_num):
         super().__init__()
-        self.block = hf_reference_model.layers[layer_num]
+        self.block = hf_reference_model.layers[layer_num].mixer
         self.block.eval()
 
     def forward(self, x):
@@ -38,7 +38,7 @@ class PytorchResidualBlock(torch.nn.Module):
         ),
     ),
 )
-def test_residual_block_inference(
+def test_mamba_block_inference(
     model_version: MambaPretrainedModelName,
     batch,
     pcc: float,
@@ -55,13 +55,13 @@ def test_residual_block_inference(
     input = torch.rand(batch, 1, d_model)
     tt_input = input.clone()
 
-    reference_output = PytorchResidualBlock(reference_model, LAYER_NUM)(input)
+    reference_output = PytorchMambaBlock(reference_model, LAYER_NUM)(input)
 
     residual_block = reference_model.layers[LAYER_NUM]
     assert not isinstance(residual_block, torch.Tensor), "Expected torch.Module"
 
     loader = TtTensorLoader(reference_model.state_dict(), device)
-    model = TtResidualBlock(reference_model.args, device, loader.get_tensor_loader(LAYER_NUM))
+    model = TtMambaBlock(reference_model.args, device, loader.get_tensor_loader(LAYER_NUM))
     tt_input = tt_input.unsqueeze(1)
     tt_input = torch2tt_tensor(
         tt_input,

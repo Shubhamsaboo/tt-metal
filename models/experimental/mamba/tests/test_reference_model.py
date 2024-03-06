@@ -8,9 +8,9 @@ from loguru import logger
 
 from transformers import AutoTokenizer
 
-from models.demos.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
-from models.demos.mamba.reference.model import Mamba
-from models.demos.mamba.reference.mamba_decode import generate_through_decode, generate_through_selective_scan
+from models.experimental.mamba.reference.decode_model import MambaDecode, MambaPretrainedModelName
+from models.experimental.mamba.reference.model import Mamba
+from models.experimental.mamba.reference.mamba_decode import generate_through_decode, generate_through_selective_scan
 
 
 @pytest.mark.parametrize(

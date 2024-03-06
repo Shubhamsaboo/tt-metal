@@ -8,8 +8,8 @@ from loguru import logger
 
 from transformers import AutoTokenizer
 
-from models.demos.mamba.demo.demo import run_demo
-from models.demos.mamba.reference.decode_model import MambaPretrainedModelName
+from models.experimental.mamba.demo.demo import run_demo
+from models.experimental.mamba.reference.decode_model import MambaPretrainedModelName
 
 
 @pytest.mark.parametrize(
