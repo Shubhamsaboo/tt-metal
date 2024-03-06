@@ -11,18 +11,18 @@ import torch
 
 from transformers import AutoTokenizer
 
-from models.demos.mamba.reference.decode_model import MambaPretrainedModelName
+from models.experimental.mamba.reference.decode_model import MambaPretrainedModelName
 
 
 def get_cpu_reference_model(version: MambaPretrainedModelName, batch_size: int):
-    from models.demos.mamba.reference.decode_model import MambaDecode
+    from models.experimental.mamba.reference.decode_model import MambaDecode
 
     return MambaDecode.from_pretrained(version, batch_size=batch_size)
 
 
 def get_tt_metal_model(version: MambaPretrainedModelName, use_cache: bool, batch_size: int):
     import tt_lib
-    from models.demos.mamba.tt.full_model import MambaTT
+    from models.experimental.mamba.tt.full_model import MambaTT
 
     tt_lib.program_cache.disable_and_clear()
 
