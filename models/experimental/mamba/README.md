@@ -7,7 +7,7 @@ python demo/demo.py "What is the capital of France?" "What is the capital of Ger
 
 ## Run on Wormhole
 ```
-python demo/demo.py "What is the capital of France?" "What is the capital of Germany?" --model cpu
+python demo/demo.py "What is the capital of France?" "What is the capital of Germany?" --model wh
 ```
 # Mamba Unit Tests
 `model-version : mamba-370m`
