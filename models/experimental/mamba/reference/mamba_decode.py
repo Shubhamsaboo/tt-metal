@@ -118,7 +118,7 @@ def test_decode():
     hf_reference_model = MambaDecode.from_pretrained(pretrained_model_name)
     tt_model_decode = MambaTT(hf_reference_model, tt_device)
     print("Output from decode only mode through metal:")
-    print(generate_through_decode(tt_model_decode, tokenizer, prompt, device="metal"))
+    print(generate_through_decode(tt_model_decode, tokenizer, prompt))
 
 
 if __name__ == "__main__":
