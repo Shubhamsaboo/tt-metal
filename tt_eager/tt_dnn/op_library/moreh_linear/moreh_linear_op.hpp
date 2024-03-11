@@ -21,6 +21,7 @@ Tensor moreh_linear(
     const Tensor& input,
     const Tensor& weight,
     std::optional<std::reference_wrapper<const Tensor>> bias = std::nullopt,
+    std::optional<std::reference_wrapper<const Tensor>> output_tensor = std::nullopt,
     const MemoryConfig& output_mem_config = operation::DEFAULT_OUTPUT_MEMORY_CONFIG);
 
 }  // namespace primary
