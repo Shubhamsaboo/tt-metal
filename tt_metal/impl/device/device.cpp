@@ -247,14 +247,15 @@ void Device::initialize_and_launch_firmware() {
     }
 
     // Load erisc app base FW to eth cores
-    auto active_eth_cores = this->get_active_ethernet_cores();
-    for (uint32_t e = 0; e < 15; e++) {
-        CoreCoord logical_eth_core(0, e);
-        CoreCoord phys_eth_core = this->ethernet_core_from_logical_core(logical_eth_core);
+    for (const auto &eth_core : this->get_active_ethernet_cores()) {
+        CoreCoord phys_eth_core = this->ethernet_core_from_logical_core(eth_core);
         this->initialize_firmware(phys_eth_core, &launch_msg);
-        if (active_eth_cores.find(logical_eth_core) == active_eth_cores.end()) {
-            not_done_idle_eth_cores.insert(phys_eth_core);
-        }
+    }
+
+    for (const auto &eth_core : this->get_inactive_ethernet_cores()) {
+        CoreCoord phys_eth_core = this->ethernet_core_from_logical_core(eth_core);
+        this->initialize_firmware(phys_eth_core, &launch_msg);
+        not_done_idle_eth_cores.insert(phys_eth_core);
     }
 
     // Barrier between L1 writes above and deassert below
@@ -297,6 +298,7 @@ void Device::clear_l1_state() {
         llrt::write_hex_vec_to_core(
             this->id(), physical_core, init_erisc_info_vec, eth_l1_mem::address_map::ERISC_APP_SYNC_INFO_BASE);
     }
+    // TODO: clear idle eriscs as well
 }
 
 // TODO: This will be removed once FD v1.3 is backported to Grayskull
