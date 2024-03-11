@@ -118,3 +118,25 @@ TEST_F(DeviceFixture, InitializeIllegalSemaphores) {
             devices_.at(id), program, core_range);
     }
 }
+
+TEST_F(DeviceFixture, CreateMultipleSemaphoresOnSameCore) {
+    tt_metal::Program program = tt_metal::CreateProgram();
+
+    CoreCoord core0(0,0);
+    uint32_t sem0_addr = tt_metal::CreateSemaphore(program, core0, 0);
+
+    CoreCoord core1(4,0);
+    uint32_t sem1_addr = tt_metal::CreateSemaphore(program, core1, 1);
+
+    CoreRange core_range({1, 0}, {3, 0});
+    CoreRangeSet core_range_set({core_range});
+    CoreRangeSet second_core_range_set = core_range_set.merge({core1});
+
+    uint32_t sem2_addr = tt_metal::CreateSemaphore(program, core_range_set, 2);
+    uint32_t sem3_addr = tt_metal::CreateSemaphore(program, second_core_range_set, 3);
+
+    EXPECT_EQ(sem0_addr, SEMAPHORE_BASE);
+    EXPECT_EQ(sem1_addr, SEMAPHORE_BASE);
+    EXPECT_EQ(sem2_addr, SEMAPHORE_BASE);
+    EXPECT_EQ(sem3_addr, SEMAPHORE_BASE + L1_ALIGNMENT);
+}
