@@ -27,7 +27,7 @@ from models.utility_functions import (
     is_grayskull,
 )
 
-from models.demos.ttnn_resnet.tt.ttnn_functional_resnet import resnet_basic_block, resnet_bottleneck_block
+from models.demos.ttnn_resent.tt.ttnn_functional_resnet import resnet_basic_block, resnet_bottleneck_block
 
 
 def update_ttnn_module_args(ttnn_module_args):
@@ -412,6 +412,8 @@ def test_bottleneck_block_with_downsample(device):
     assert_with_pcc(torch_output_tensor, output_tensor, pcc=0.98)
 
 
+@skip_for_wormhole_b0()
+# @pytest.mark.skip(reason="Tries to allocate >1MB L1 space for CBs - Issue #5966 for optimized_conv")
 @pytest.mark.parametrize(
     "batch_size, act_dtype, weight_dtype, math_fidelity",
     (
@@ -594,9 +596,7 @@ def test_resnet_50(device, batch_size, act_dtype, weight_dtype, math_fidelity):
     module = 1
     for bottleneck_block_parameters in list(parameters.layer1.values()):
         logger.debug(f"parameters 1st block {bottleneck_block_parameters}")
-        output_tensor = resnet_bottleneck_block(
-            output_tensor, bottleneck_block_parameters, layer=1, module=module, device=device
-        )
+        output_tensor = resnet_bottleneck_block(output_tensor, bottleneck_block_parameters, layer=1, module=module)
         module += 1
 
     """
