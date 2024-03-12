@@ -222,11 +222,12 @@ operation::ProgramWithCallbacks interleaved_to_sharded_multi_core(
                     }
                 }
             }
+            uint32_t padded_shard_width = round_up_to_mul32(shard_width);
             tt_metal::SetRuntimeArgs(
                 program,
                 unary_reader_kernel_id,
                 core,
-                {src_buffer->address(), num_units_per_row, shard_height, shard_width, curr_idx_w, curr_idx_h});
+                {src_buffer->address(), num_units_per_row, shard_height, shard_width, padded_shard_width, curr_idx_w, curr_idx_h});
             curr_idx_w += input_unit_size;
             if (curr_idx_w == num_units_per_row) {
                 curr_idx_w = 0;
@@ -466,12 +467,12 @@ operation::ProgramWithCallbacks sharded_to_interleaved_multi_core(
                     }
                 }
             }
-
+            uint32_t padded_shard_width = round_up_to_mul32(shard_width);
             tt_metal::SetRuntimeArgs(
                 program,
                 unary_writer_kernel_id,
                 core,
-                {dst_buffer->address(), num_units_per_row, shard_height, shard_width, curr_idx_w, curr_idx_h});
+                {dst_buffer->address(), num_units_per_row, shard_height, shard_width, padded_shard_width, curr_idx_w, curr_idx_h});
             curr_idx_w += output_unit_size;
             if (curr_idx_w >= num_units_per_row) {
                 curr_idx_w = 0;
