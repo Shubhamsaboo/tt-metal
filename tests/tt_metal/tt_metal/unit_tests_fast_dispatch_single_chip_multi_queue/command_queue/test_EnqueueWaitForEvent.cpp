@@ -246,7 +246,8 @@ TEST_F(MultiCommandQueueSingleDeviceFixture, TestEventsReadWriteWithWaitForEvent
 // More interesting test where Blocking ReadBuffer, Non-Blocking WriteBuffer are on alternate CQs,
 // ordered via events. Do many loops, occasionally increasing size of buffers (page size, num pages).
 // Ensure read back data is correct, data is different for each write.
-TEST_F(MultiCommandQueueSingleDeviceFixture, TestEventsReadWriteWithWaitForEventCrossCQs) {
+TEST_F(MultiCommandQueueSingl(eDeviceFixture, DISABLED_TestEventsReadWriteWithWaitForEventCrossCQs) {
+    // Disabled test due to Non-deterministic failure listed in GH Issue #6281 on Grayskull
     TestBufferConfig config = {.num_pages = 1, .page_size = 32, .buftype = BufferType::DRAM};
     vector<std::reference_wrapper<CommandQueue>> cqs = {this->device_->command_queue(0), this->device_->command_queue(1)};
     vector<uint32_t> cmds_issued_per_cq = {0, 0};
