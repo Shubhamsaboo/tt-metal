@@ -201,6 +201,63 @@ void process_write() {
     }
 }
 
+// KCM - What does this comment mean for this function now that things are paged?
+// Note that for non-paged writes, the number of writes per page is always 1
+// This means each noc_write frees up a page
+template<bool is_dram>
+FORCE_INLINE
+void process_write_paged(uint32_t num_mcast_dests) {
+    volatile tt_l1_ptr CQDispatchCmd *cmd = (volatile tt_l1_ptr CQDispatchCmd *)cmd_ptr;
+
+    uint32_t dst_noc = cmd->write.noc_xy_addr;
+    uint32_t dst_addr = cmd->write.addr;
+    uint32_t length = cmd->write.length;
+    uint32_t data_ptr = cmd_ptr + sizeof(CQDispatchCmd);
+    DPRINT << "dispatch_write: " << length << " num_mcast_dests: " << num_mcast_dests << ENDL();
+    while (length != 0) {
+        uint32_t xfer_size = (length > dispatch_cb_page_size) ? dispatch_cb_page_size : length;
+        uint64_t dst = get_noc_addr_helper(dst_noc, dst_addr);
+
+        // Get a page if needed
+        if (data_ptr + xfer_size > cb_fence) {
+            // Check for block completion
+            if (cb_fence == block_next_start_addr[rd_block_idx]) {
+                // Check for dispatch_cb wrap
+                if (rd_block_idx == dispatch_cb_blocks - 1) {
+                    uint32_t orphan_size = dispatch_cb_end - data_ptr;
+                    if (orphan_size != 0) {
+                        noc_async_write(data_ptr, dst, orphan_size);
+                        block_noc_writes_to_clear[rd_block_idx]++;
+                        length -= orphan_size;
+                        xfer_size -= orphan_size;
+                        dst_addr += orphan_size;
+                    }
+                    cb_fence = dispatch_cb_base;
+                    data_ptr = dispatch_cb_base;
+                    dst = get_noc_addr_helper(dst_noc, dst_addr);
+                }
+
+                move_rd_to_next_block();
+            }
+
+            // Wait for dispatcher to supply a page (this won't go beyond the buffer end)
+            uint32_t n_pages = dispatch_cb_acquire_pages();
+            cb_fence += n_pages * dispatch_cb_page_size;
+
+            // Release pages for prefetcher
+            // Since we gate how much we acquire to < 1/4 the buffer, this should be called enough
+            dispatch_cb_block_release_pages();
+        }
+
+        noc_async_write(data_ptr, dst, xfer_size);
+        block_noc_writes_to_clear[rd_block_idx]++; // XXXXX maybe just write the noc internal api counter
+
+        length -= xfer_size;
+        data_ptr += xfer_size;
+        dst_addr += xfer_size;
+    }
+    cmd_ptr = data_ptr;
+}
 
 // Packed write command
 // Layout looks like:
