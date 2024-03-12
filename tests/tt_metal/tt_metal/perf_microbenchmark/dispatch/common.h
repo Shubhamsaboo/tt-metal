@@ -368,6 +368,7 @@ inline bool validate_results(Device *device, CoreRange workers, const worker_dat
     }
 
     log_info(tt::LogTest, "Validated {} cores total.", validated_cores.size());
+    // This might be mistake to add, some flows (prefetcher test) hit this readily on DRAM reads, I suspect.
     if (validated_cores.size() != workers.size()) {
         tt::log_warning("Mismatch in number of cores. Total: {} Validated: {}", workers.size(), validated_cores.size());
     }

@@ -206,19 +206,36 @@ void process_write() {
 // This means each noc_write frees up a page
 template<bool is_dram>
 FORCE_INLINE
-void process_write_paged(uint32_t num_mcast_dests) {
+void process_write_paged() {
     volatile tt_l1_ptr CQDispatchCmd *cmd = (volatile tt_l1_ptr CQDispatchCmd *)cmd_ptr;
 
-    uint32_t dst_noc = cmd->write.noc_xy_addr;
-    uint32_t dst_addr = cmd->write.addr;
-    uint32_t length = cmd->write.length;
+    uint32_t page_id = cmd->write_paged.start_page;
+    uint32_t base_addr = cmd->write_paged.base_addr;
+    uint32_t page_size = cmd->write_paged.page_size;
+    uint32_t pages = cmd->write_paged.pages;
     uint32_t data_ptr = cmd_ptr + sizeof(CQDispatchCmd);
-    DPRINT << "dispatch_write: " << length << " num_mcast_dests: " << num_mcast_dests << ENDL();
-    while (length != 0) {
-        uint32_t xfer_size = (length > dispatch_cb_page_size) ? dispatch_cb_page_size : length;
-        uint64_t dst = get_noc_addr_helper(dst_noc, dst_addr);
 
-        // Get a page if needed
+    // KCM - These things are new.
+    uint32_t write_length = pages * page_size;
+    InterleavedAddrGen<is_dram> addr_gen;
+    addr_gen.bank_base_address = base_addr;
+    addr_gen.page_size = page_size;
+
+    DPRINT << "process_write_paged. starting with page_id: " << page_id << " base_addr: " << base_addr;
+    DPRINT << " page_size: " << page_size << " pages: " << pages << " write_length: " << write_length << ENDL();
+
+    uint64_t dst_addr_offset = 0; // Offset into page.
+    uint32_t write_attempts = 0; // Debug.
+
+    while (write_length != 0) {
+
+        uint32_t xfer_size = page_size > dispatch_cb_page_size ? dispatch_cb_page_size : page_size;
+        // I think it makes sense to reduce xfer_size if we are nearing end of dispatch page. This is what below orphan does I think.
+
+        uint64_t dst = addr_gen.get_noc_addr(page_id); // XXXX replace this w/ walking the banks to save mul on GS
+        dst += dst_addr_offset; // KCM - I think?
+
+        // Get a Dispatch page if needed
         if (data_ptr + xfer_size > cb_fence) {
             // Check for block completion
             if (cb_fence == block_next_start_addr[rd_block_idx]) {
@@ -226,15 +243,19 @@ void process_write_paged(uint32_t num_mcast_dests) {
                 if (rd_block_idx == dispatch_cb_blocks - 1) {
                     uint32_t orphan_size = dispatch_cb_end - data_ptr;
                     if (orphan_size != 0) {
+
+                        // Write out some data.
                         noc_async_write(data_ptr, dst, orphan_size);
                         block_noc_writes_to_clear[rd_block_idx]++;
-                        length -= orphan_size;
+                        write_length -= orphan_size;
                         xfer_size -= orphan_size;
-                        dst_addr += orphan_size;
+                        dst_addr_offset += orphan_size;
                     }
                     cb_fence = dispatch_cb_base;
                     data_ptr = dispatch_cb_base;
-                    dst = get_noc_addr_helper(dst_noc, dst_addr);
+                    // KCM - Hacky to add offset to lower 32 bits, but works, I think.
+                    // KCM FIXME - Maybe can be optimized to avoid func call.
+                    dst = addr_gen.get_noc_addr(page_id) + dst_addr_offset;
                 }
 
                 move_rd_to_next_block();
@@ -249,13 +270,28 @@ void process_write_paged(uint32_t num_mcast_dests) {
             dispatch_cb_block_release_pages();
         }
 
+        DPRINT << "Writing xfer_size: " << xfer_size << " write_attempts: " << ++write_attempts << " to addr: " << HEX() << (uint32_t) (dst & 0xFFFFFFFF) << " write_length: " << write_length << ENDL();
+
         noc_async_write(data_ptr, dst, xfer_size);
         block_noc_writes_to_clear[rd_block_idx]++; // XXXXX maybe just write the noc internal api counter
 
-        length -= xfer_size;
+
+        // KCM - Determine if buffer page is fully written to, or if partial writes are still needed.
+        if (dst_addr_offset + xfer_size < page_size) {
+            dst_addr_offset += xfer_size;
+            DPRINT << " No - Not yet completed writing to a buffer page. Increase to dst_addr_offset: " << dst_addr_offset << ENDL();
+        } else {
+            page_id++;
+            dst_addr_offset = 0;
+            DPRINT << " Yes - Completed writing to a buffer page of page_size: " << page_size << ". Increased to page_id: " << page_id << ENDL();
+        }
+
+        write_length -= xfer_size;
         data_ptr += xfer_size;
-        dst_addr += xfer_size;
+        // dst_addr_offset += xfer_size;
     }
+
+    DPRINT << "process_write_paged. Finished! " << ENDL();
     cmd_ptr = data_ptr;
 }
 
@@ -430,7 +466,12 @@ void kernel_main() {
             break;
 
         case CQ_DISPATCH_CMD_WRITE_PAGED:
-            DPRINT << "cmd_write_paged" << ENDL();
+            DPRINT << "cmd_write_paged is_dram: " << cmd->write_paged.is_dram <<  ENDL();
+            if (cmd->write_paged.is_dram) {
+                process_write_paged<true>();
+            } else {
+                process_write_paged<false>();
+            }
             break;
 
         case CQ_DISPATCH_CMD_WRITE_PACKED:
