@@ -19,7 +19,6 @@ from loguru import logger
 
 from tt_metal.tools.profiler.common import PROFILER_ARTIFACTS_DIR
 import tt_metal.tools.profiler.device_post_proc_config as device_post_proc_config
-import tt_metal.tools.profiler.dummy_refresh as dummy_refresh
 
 SUM_MARKER_ID_START = 3000
 

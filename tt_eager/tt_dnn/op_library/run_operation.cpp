@@ -94,10 +94,7 @@ std::vector<Tensor> run_host_operation(const HostOperation& operation, const std
     operation.validate(input_tensors);
     auto output_tensors = operation.compute_output_tensors(input_tensors);
 
-    std::string op_message = op_profiler::op_meta_data_serialized_json(op_id, operation, input_tensors, output_tensors);
-    std::string op_text = fmt::format("id:{}", op_id);
-    ZoneText(op_text.c_str(), op_text.size());
-    TracyMessage(op_message.c_str(), op_message.size());
+    TracyOpTTNNHost(op_id, operation, input_tensors, output_tensors);
 
     return output_tensors;
 }
@@ -169,6 +166,7 @@ std::vector<Tensor> run_device_operation(
     operation.validate(input_tensors, optional_input_tensors, optional_output_tensors);
     auto output_tensors = operation.create_output_tensors(input_tensors, optional_output_tensors);
     auto program = get_or_create_program(operation, input_tensors, optional_input_tensors, output_tensors);
+    uint32_t device_id = detail::get_device(input_tensors, optional_input_tensors)->id();
 
     // Enqueue or Launch Program
     std::visit(
@@ -200,14 +198,7 @@ std::vector<Tensor> run_device_operation(
         },
         program);
 
-
-    // Will turn the following four lines to a macro that need to compile to nothing in a non tracy build
-    // Needs to be a macro because it needs to be part of the same parent run_device_operation scope
-    uint32_t device_id = detail::get_device(input_tensors, optional_input_tensors)->id();
-    std::string op_message = op_profiler::op_meta_data_serialized_json(op_id, device_id, operation, program, input_tensors, optional_input_tensors, output_tensors);
-    std::string op_text = fmt::format("id:{}", op_id);
-    ZoneText(op_text.c_str(), op_text.size());
-    TracyMessage(op_message.c_str(), op_message.size());
+    TracyOpTTNNDevice(op_id, device_id, operation, program, input_tensors, optional_input_tensors, output_tensors);
 
     return output_tensors;
 }

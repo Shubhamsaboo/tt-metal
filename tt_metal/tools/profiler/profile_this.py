@@ -15,29 +15,19 @@ from tt_metal.tools.profiler.common import (
     PROFILER_SCRIPTS_ROOT,
     TT_METAL_HOME,
     PROFILER_OUTPUT_DIR,
-    get_log_locations,
-    test_profiler_build,
 )
 
 
-def profile_command(test_command):
+def profile_command(test_command, output_folder, name_append):
     currentEnvs = dict(os.environ)
     currentEnvs["TT_METAL_DEVICE_PROFILER"] = "1"
-    subprocess.run([test_command], shell=True, check=False, env=currentEnvs)
-
-
-def post_process(outputLocation=None, nameAppend=""):
-    logLocations = get_log_locations()
-
-    for logLocation in logLocations:
-        if outputLocation is None:
-            outputLocation = PROFILER_OUTPUT_DIR
-
-        postProcessCmd = f"{PROFILER_SCRIPTS_ROOT}/process_ops_logs.py -i {logLocation} -o {outputLocation} --date"
-        if nameAppend:
-            postProcessCmd += f" -n {nameAppend}"
-
-        os.system(postProcessCmd)
+    options = ""
+    if output_folder:
+        options += f"-o {output_folder}"
+    if name_append:
+        options += f" -n {name_append}"
+    opProfilerTestCommand = f"python -m tracy -r -p {options} -m {test_command}"
+    subprocess.run([opProfilerTestCommand], shell=True, check=False, env=currentEnvs)
 
 
 @click.command()
@@ -45,16 +35,11 @@ def post_process(outputLocation=None, nameAppend=""):
 @click.option("-c", "--command", type=str, required=True, help="Test command to profile")
 @click.option("-n", "--name-append", type=str, help="Name to be appended to artifact names and folders")
 def main(command, output_folder, name_append):
-    isProfilerBuild = test_profiler_build()
-    if isProfilerBuild:
-        logger.info(f"Profiler build flag is set")
-    else:
-        logger.error(f"Need to build with the profiler flag enabled. i.e. make build ENABLE_PROFILER=1")
-        sys.exit(1)
-
+    logger.warning(
+        "profile_this.py is getting deprecated soon. Please use the tracy.py module with -r option to obtain op reports."
+    )
     if command:
-        profile_command(command)
-        post_process(output_folder, name_append)
+        profile_command(command, output_folder, name_append)
 
 
 if __name__ == "__main__":

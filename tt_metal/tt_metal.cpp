@@ -249,8 +249,6 @@ void CloseDevices(std::map<chip_id_t, Device *> devices) {
 
     void WriteToDevice(const Buffer &buffer, const std::vector<uint32_t> &host_buffer) {
         ZoneScoped;
-        detail::ProfileTTMetalScope profile_this =
-            detail::ProfileTTMetalScope(std::string("WriteToDevice ") + std::to_string(buffer.device()->id()));
         if(buffer.buffer_layout() == TensorMemoryLayout::INTERLEAVED || buffer.buffer_layout() == TensorMemoryLayout::SINGLE_BANK){
             WriteToDeviceInterleavedContiguous(buffer, host_buffer);
         }
@@ -389,9 +387,6 @@ void CloseDevices(std::map<chip_id_t, Device *> devices) {
 
     void ReadFromDevice(const Buffer &buffer, std::vector<uint32_t> &host_buffer,  bool shard_order) {
         ZoneScoped;
-        detail::ProfileTTMetalScope profile_this =
-            detail::ProfileTTMetalScope(std::string("ReadFromDevice ") + std::to_string(buffer.device()->id()));
-
         host_buffer.clear();  // overwrite the data
         if(buffer.buffer_layout() == TensorMemoryLayout::INTERLEAVED
             || buffer.buffer_layout() == TensorMemoryLayout::SINGLE_BANK){
@@ -470,8 +465,6 @@ void CloseDevices(std::map<chip_id_t, Device *> devices) {
         {//Profiler scope start
         ZoneScoped;
         detail::DispatchStateCheck( false );
-        detail::ProfileTTMetalScope profile_this =
-            detail::ProfileTTMetalScope(std::string("LaunchProgram ") + std::to_string(device->id()));
         detail::CompileProgram(device, program);
         detail::WriteRuntimeArgsToDevice(device, program);
         detail::ConfigureDeviceWithProgram(device, program);
@@ -508,8 +501,6 @@ void CloseDevices(std::map<chip_id_t, Device *> devices) {
         // Used to Launch programs for Slow dispatch.
         bool using_fast_dispatch = fd_bootloader_mode;
         detail::DispatchStateCheck( using_fast_dispatch );
-        detail::ProfileTTMetalScope profile_this =
-            detail::ProfileTTMetalScope(std::string("ConfigureDeviceWithProgram ") + std::to_string(device->id()));
 
         auto device_id = device->id();
 

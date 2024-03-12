@@ -26,57 +26,6 @@ namespace tt {
 
 namespace tt_metal {
 
-// struct for holding start, stop and duration of a timer period in integer format
-struct TimerPeriodInt {
-    uint64_t start;
-    uint64_t stop;
-    uint64_t delta;
-};
-
-// struct for holding start, stop of a timer in steady_clock::time_point format
-struct TimerPeriod {
-    steady_clock::time_point start;
-    steady_clock::time_point stop;
-};
-
-
-class HostProfiler {
-    private:
-
-        // Holds name to timers
-        std::unordered_map <std::string, TimerPeriod> name_to_timer_map;
-
-        // Recreate host side log file with header
-        bool new_log;
-
-        // Output Dir for Profile Logs
-        std::filesystem::path output_dir;
-
-        // Turn steady clock start and stop into integer start, stop and duration
-        TimerPeriodInt timerToTimerInt(TimerPeriod period);
-
-        //Traverse all timers and dump the results, appending addtional fields
-        void dumpResults(
-                const std::string& timer_name,
-                const std::vector<std::pair<std::string,std::string>>& additional_fields = {});
-
-    public:
-        //Constructor
-        HostProfiler();
-
-        //Mark the steady_clock for the start of the asked name
-        void markStart(const std::string& timer_name);
-
-        //Mark the steady_clock time for the end of the asked name
-        void markStop(const std::string& timer_name, const std::vector<std::pair<std::string,std::string>>& additional_fields = {});
-
-        //Set the host side file flag
-        void setNewLogFlag(bool new_log_flag);
-
-        //Change the output dir of host profile logs
-        void setOutputDir(const std::string& new_output_dir);
-};
-
 class DeviceProfiler {
     private:
 

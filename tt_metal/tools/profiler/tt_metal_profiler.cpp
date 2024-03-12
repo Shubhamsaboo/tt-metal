@@ -27,7 +27,6 @@ void DumpDeviceProfileResults(Device *device, const Program &program) {
 namespace detail {
 
 std::map <uint32_t, DeviceProfiler> tt_metal_device_profiler_map;
-HostProfiler tt_metal_host_profiler;
 
 void InitDeviceProfiler(Device *device){
 #if defined(PROFILER)
@@ -35,64 +34,69 @@ void InitDeviceProfiler(Device *device){
 
     TracySetCpuTime();
     auto device_id = device->id();
-    if (tt_metal_device_profiler_map.find(device_id) == tt_metal_device_profiler_map.end())
+    if (getDeviceProfilerState())
     {
-        if (tt_metal_device_profiler_map.size() == 0)
+        static std::atomic<bool> firstInit = true;
+
+        auto device_id = device->id();
+        if (tt_metal_device_profiler_map.find(device_id) == tt_metal_device_profiler_map.end())
         {
-            tt_metal_device_profiler_map.emplace(device_id, DeviceProfiler(true));
+            if (firstInit.exchange(false))
+            {
+                tt_metal_device_profiler_map.emplace(device_id, DeviceProfiler(true));
+            }
+            else
+            {
+                tt_metal_device_profiler_map.emplace(device_id, DeviceProfiler(false));
+            }
         }
-        else
+        uint32_t dramBankCount = tt::Cluster::instance().get_soc_desc(device_id).get_num_dram_channels();
+        uint32_t coreCountPerDram = tt::Cluster::instance().get_soc_desc(device_id).profiler_ceiled_core_count_perf_dram_bank;
+
+        uint32_t pageSize =
+            PROFILER_FULL_HOST_BUFFER_SIZE_PER_RISC * PROFILER_RISC_COUNT * coreCountPerDram;
+
+
+        if (tt_metal_device_profiler_map.at(device_id).output_dram_buffer == nullptr )
         {
-            tt_metal_device_profiler_map.emplace(device_id, DeviceProfiler(false));
+            tt::tt_metal::InterleavedBufferConfig dram_config{
+                        .device= device,
+                        .size = pageSize * dramBankCount,
+                        .page_size =  pageSize,
+                        .buffer_type = tt::tt_metal::BufferType::DRAM
+            };
+            tt_metal_device_profiler_map.at(device_id).output_dram_buffer = tt_metal::CreateBuffer(dram_config);
         }
+
+        std::vector<uint32_t> control_buffer(PROFILER_L1_CONTROL_VECTOR_SIZE, 0);
+        control_buffer[kernel_profiler::DRAM_PROFILER_ADDRESS] = tt_metal_device_profiler_map.at(device_id).output_dram_buffer->address();
+
+        const metal_SocDescriptor& soc_d = tt::Cluster::instance().get_soc_desc(device_id);
+        auto ethCores = soc_d.get_physical_ethernet_cores() ;
+
+        for (auto &core : tt::Cluster::instance().get_soc_desc(device_id).physical_routing_to_profiler_flat_id)
+        {
+            if (std::find(ethCores.begin(), ethCores.end(), core.first) == ethCores.end())
+            {
+                tt::llrt::write_hex_vec_to_core(
+                        device_id,
+                        core.first,
+                        control_buffer,
+                        PROFILER_L1_BUFFER_CONTROL);
+            }
+            else
+            {
+                tt::llrt::write_hex_vec_to_core(
+                        device_id,
+                        core.first,
+                        control_buffer,
+                        eth_l1_mem::address_map::PROFILER_L1_BUFFER_CONTROL);
+            }
+        }
+
+        std::vector<uint32_t> inputs_DRAM(tt_metal_device_profiler_map.at(device_id).output_dram_buffer->size()/sizeof(uint32_t), 0);
+        tt_metal::detail::WriteToBuffer(tt_metal_device_profiler_map.at(device_id).output_dram_buffer, inputs_DRAM);
     }
-    uint32_t dramBankCount = tt::Cluster::instance().get_soc_desc(device_id).get_num_dram_channels();
-    uint32_t coreCountPerDram = tt::Cluster::instance().get_soc_desc(device_id).profiler_ceiled_core_count_perf_dram_bank;
-
-    uint32_t pageSize =
-        PROFILER_FULL_HOST_BUFFER_SIZE_PER_RISC * PROFILER_RISC_COUNT * coreCountPerDram;
-
-
-    if (tt_metal_device_profiler_map.at(device_id).output_dram_buffer == nullptr )
-    {
-        tt::tt_metal::InterleavedBufferConfig dram_config{
-                    .device= device,
-                    .size = pageSize * dramBankCount,
-                    .page_size =  pageSize,
-                    .buffer_type = tt::tt_metal::BufferType::DRAM
-        };
-        tt_metal_device_profiler_map.at(device_id).output_dram_buffer = tt_metal::CreateBuffer(dram_config);
-    }
-
-    std::vector<uint32_t> control_buffer(PROFILER_L1_CONTROL_VECTOR_SIZE, 0);
-    control_buffer[kernel_profiler::DRAM_PROFILER_ADDRESS] = tt_metal_device_profiler_map.at(device_id).output_dram_buffer->address();
-
-    const metal_SocDescriptor& soc_d = tt::Cluster::instance().get_soc_desc(device_id);
-    auto ethCores = soc_d.get_physical_ethernet_cores() ;
-
-    for (auto &core : tt::Cluster::instance().get_soc_desc(device_id).physical_routing_to_profiler_flat_id)
-    {
-        if (std::find(ethCores.begin(), ethCores.end(), core.first) == ethCores.end())
-        {
-            tt::llrt::write_hex_vec_to_core(
-                    device_id,
-                    core.first,
-                    control_buffer,
-                    PROFILER_L1_BUFFER_CONTROL);
-        }
-        else
-        {
-            tt::llrt::write_hex_vec_to_core(
-                    device_id,
-                    core.first,
-                    control_buffer,
-                    eth_l1_mem::address_map::PROFILER_L1_BUFFER_CONTROL);
-        }
-    }
-
-    std::vector<uint32_t> inputs_DRAM(tt_metal_device_profiler_map.at(device_id).output_dram_buffer->size()/sizeof(uint32_t), 0);
-    tt_metal::detail::WriteToBuffer(tt_metal_device_profiler_map.at(device_id).output_dram_buffer, inputs_DRAM);
-
 #endif
 }
 
@@ -128,7 +132,6 @@ void DumpDeviceProfileResults(Device *device, std::vector<CoreCoord> &worker_cor
             Finish(device->command_queue());
         }
         TT_FATAL(DprintServerIsRunning() == false, "Debug print server is running, cannot dump device profiler data");
-        ProfileTTMetalScope profile_this = ProfileTTMetalScope("DumpDeviceProfileResults");
         auto device_id = device->id();
         if (tt_metal_device_profiler_map.find(device_id) != tt_metal_device_profiler_map.end())
         {
@@ -136,6 +139,8 @@ void DumpDeviceProfileResults(Device *device, std::vector<CoreCoord> &worker_cor
             tt_metal_device_profiler_map.at(device_id).dumpResults(device, worker_cores);
             if (free_buffers)
             {
+                // Process is ending, no more device dumps are coming, reset your ref on the buffer so deallocate is the last
+                // owner.
                 tt_metal_device_profiler_map.at(device_id).output_dram_buffer.reset();
             }
             else
@@ -149,44 +154,19 @@ void DumpDeviceProfileResults(Device *device, std::vector<CoreCoord> &worker_cor
 
 void SetDeviceProfilerDir(std::string output_dir){
 #if defined(PROFILER)
-    //if (tt_metal_device_profiler_map.find(device_id) != tt_metal_device_profiler_map.end())
-    //{
-        //tt_metal_device_profiler_map[device_id].setOutputDir(output_dir);
-    //}
-#endif
-}
-
-void SetHostProfilerDir(std::string output_dir){
-#if defined(PROFILER)
-     tt_metal_host_profiler.setOutputDir(output_dir);
-#endif
-}
-
-void FreshProfilerHostLog(){
-#if defined(PROFILER)
-     tt_metal_host_profiler.setNewLogFlag(true);
+    for (auto& device_id : tt_metal_device_profiler_map)
+    {
+        tt_metal_device_profiler_map.at(device_id.first).setOutputDir(output_dir);
+    }
 #endif
 }
 
 void FreshProfilerDeviceLog(){
 #if defined(PROFILER)
-    //if (tt_metal_device_profiler_map.find(device_id) != tt_metal_device_profiler_map.end())
-    //{
-        //tt_metal_device_profiler_map[device_id].setNewLogFlag(true);
-    //}
-#endif
-}
-
-ProfileTTMetalScope::ProfileTTMetalScope (const string& scopeNameArg) : scopeName(scopeNameArg){
-#if defined(PROFILER)
-    tt_metal_host_profiler.markStart(scopeName);
-#endif
-}
-
-ProfileTTMetalScope::~ProfileTTMetalScope ()
-{
-#if defined(PROFILER)
-    tt_metal_host_profiler.markStop(scopeName);
+    for (auto& device_id : tt_metal_device_profiler_map)
+    {
+        tt_metal_device_profiler_map.at(device_id.first).setNewLogFlag(true);
+    }
 #endif
 }
 

@@ -16,19 +16,19 @@ from tt_metal.tools.profiler.common import (
     clear_profiler_runtime_artifacts,
 )
 
-GS_PROG_EXMP_DIR = "programming_examples/profiler"
+PROG_EXMP_DIR = "programming_examples/profiler"
 
 
 def run_device_profiler_test(doubleRun=False, setup=False):
     name = inspect.stack()[1].function
     clear_profiler_runtime_artifacts()
-    profilerRun = os.system(f"cd {TT_METAL_HOME} && " f"build/{GS_PROG_EXMP_DIR}/{name}")
+    profilerRun = os.system(f"cd {TT_METAL_HOME} && " f"build/{PROG_EXMP_DIR}/{name}")
     assert profilerRun == 0
 
     if doubleRun:
         # Run test under twice to make sure icache is populated
         # with instructions for test
-        profilerRun = os.system(f"cd {TT_METAL_HOME} && " f"build/{GS_PROG_EXMP_DIR}/{name}")
+        profilerRun = os.system(f"cd {TT_METAL_HOME} && " f"build/{PROG_EXMP_DIR}/{name}")
         assert profilerRun == 0
 
     setupStr = ""

@@ -265,7 +265,6 @@ FORCE_INLINE bool sender_eth_send_data_sequence(ChannelBuffer &sender_buffer_cha
         bool consumer_ready_to_accept =
             eth_is_receiver_channel_send_done(sender_buffer_channel.get_eth_transaction_channel());
         if (consumer_ready_to_accept) {
-            // kernel_profiler::mark_time(14);
             // Queue up another send
             // because eth word size is 16B. -> 4bits shift to get words from bytes
             static constexpr std::size_t ETH_BYTES_TO_WORDS_SHIFT = 4;
@@ -314,7 +313,6 @@ FORCE_INLINE bool sender_eth_check_receiver_ack_sequence(ChannelBuffer &sender_b
             eth_is_receiver_channel_send_acked(sender_buffer_channel.get_eth_transaction_channel()) ||
             eth_is_receiver_channel_send_done(sender_buffer_channel.get_eth_transaction_channel());
         if (transimission_acked_by_receiver) {
-            kernel_profiler::mark_time(15);
 
             eth_clear_sender_channel_ack(sender_buffer_channel.get_eth_transaction_channel());
             sender_buffer_channel.increment_messages_moved();
@@ -337,7 +335,6 @@ FORCE_INLINE bool sender_noc_receive_payload_ack_check_sequence(ChannelBuffer &s
     if (noc_read_is_in_progress) {
         bool read_finished = sender_channel_buffer.is_local_semaphore_full();
         if (read_finished) {
-            // kernel_profiler::mark_time(13);
             // We can clear the semaphore, and wait for space on receiver
             sender_channel_buffer.clear_local_semaphore();
             sender_channel_buffer.goto_state(ChannelBuffer::READY_FOR_ETH_TRANSFER);
@@ -413,7 +410,6 @@ FORCE_INLINE bool receiver_noc_read_worker_completion_check_sequence(
 
         did_something = true;
 
-        kernel_profiler::mark_time(13);
     }
 
     return did_something;
@@ -469,7 +465,6 @@ FORCE_INLINE bool sender_eth_send_data_sequence(
     if (data_ready_for_send) {
         bool consumer_ready_to_accept = eth_is_receiver_channel_send_done(eth_sender_rdptr.index());
         if (consumer_ready_to_accept) {
-            // kernel_profiler::mark_time(14);
             // Queue up another send
             uint32_t sender_buffer_address = transaction_channel_sender_buffer_addresses[eth_sender_rdptr.index()];
             uint32_t receiver_buffer_address = transaction_channel_receiver_buffer_addresses[eth_sender_rdptr.index()];
@@ -586,7 +581,6 @@ FORCE_INLINE bool receiver_noc_read_worker_completion_check_sequence(
         if (writes_finished) {
             // DPRINT << "rx: accepting payload, sending receive ack on channel " << (uint32_t)noc_writer_buffer_ackptr
             // << "\n";
-            kernel_profiler::mark_time(13);
             noc_writer_buffer_ackptr.increment();
 
             did_something = true;
@@ -610,7 +604,6 @@ FORCE_INLINE bool receiver_eth_send_ack_to_sender_sequence(
         bool buffer_writes_flushed = ncrisc_noc_nonposted_writes_sent(noc_index);
         // bool buffer_writes_flushed = ncrisc_noc_nonposted_writes_flushed(noc_index);
         if (buffer_writes_flushed) {
-            // kernel_profiler::mark_time(15);
             // DPRINT << "rx: accepting payload, sending receive ack on channel " << (uint32_t)noc_writer_buffer_wrptr
             // << "\n";
             eth_receiver_channel_done(eth_receiver_ackptr.index());

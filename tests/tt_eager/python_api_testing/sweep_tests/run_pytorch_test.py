@@ -247,7 +247,6 @@ def run_pytorch_test(args):
 
                         test_profiling_key = f"test_sweep_separator - {run_id}"
                         logger.info(f"Starting profiling test {test_profiling_key}")
-                        tt_lib.profiler.start_profiling(test_profiling_key)
 
                         test_pass = run_test_and_save_results(
                             results_csv_writer,
@@ -266,7 +265,6 @@ def run_pytorch_test(args):
                         )
 
                         tt_lib.device.Synchronize(device)
-                        tt_lib.profiler.stop_profiling(test_profiling_key)
                         logger.info(f"Stopped profiling test {test_profiling_key}")
                         run_id += 1
 

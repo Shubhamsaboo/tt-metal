@@ -275,17 +275,20 @@ def generate_reports(ops, deviceOps, outputFolder, date, nameAppend):
     logger.info(f"OPs csv generated at: {allOpsCSVPath}")
 
 
-@click.command()
-@click.option("-i", "--ops-folder", type=click.Path(exists=True, dir_okay=True), help="Ops profiler logs folder")
-@click.option("-o", "--output-folder", type=click.Path(), help="Output folder for artifacts")
-@click.option("-n", "--name-append", type=str, help="Name to be appended to default csv name")
-@click.option("--date", default=False, is_flag=True, help="Append date to output files")
-def main(ops_folder, output_folder, name_append, date):
+def process_ops(output_folder, name_append, date):
     ops = import_tracy_op_logs()
 
     deviceOps = append_device_data(ops, PROFILER_LOGS_DIR)
 
     generate_reports(ops, deviceOps, output_folder, date, name_append)
+
+
+@click.command()
+@click.option("-o", "--output-folder", type=click.Path(), help="Output folder for artifacts")
+@click.option("-n", "--name-append", type=str, help="Name to be appended to default csv name")
+@click.option("--date", default=False, is_flag=True, help="Append date to output files")
+def main(output_folder, name_append, date):
+    process_ops(output_folder, name_append, date)
 
 
 if __name__ == "__main__":

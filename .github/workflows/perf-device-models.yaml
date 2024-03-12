@@ -36,7 +36,7 @@ jobs:
         run: |
           ./scripts/build_scripts/build_with_profiler_opt.sh
       - name: Run device performance regressions
-        timeout-minutes: 60
+        timeout-minutes: 90
         run: |
           source build/python_env/bin/activate
           ./tests/scripts/run_profiler_regressions.sh PROFILER

@@ -48,20 +48,6 @@ def clear_profiler_runtime_artifacts():
     rm(PROFILER_ARTIFACTS_DIR)
 
 
-def test_profiler_build():
-    from tt_eager import tt_lib
-
-    ret = False
-
-    tt_lib.profiler.start_profiling("test")
-    tt_lib.profiler.stop_profiling("test")
-
-    if os.path.isfile(PROFILER_LOG_LOCATIONS_RECORD):
-        ret = True
-
-    return ret
-
-
 def get_log_locations():
     logLocations = set()
     deviceLogLocations = set()

@@ -554,10 +554,7 @@ Tensor convert_python_tensors_to_tt_tensors(py::list tensor_shards, std::optiona
 
                     auto output_tensors = function(*args, **kwargs);
 
-                    std::string op_message = op_profiler::op_meta_data_serialized_json(op_id, op, input_tensors);
-                    std::string op_text = fmt::format("id:{}", op_id);
-                    ZoneText(op_text.c_str(), op_text.size());
-                    TracyMessage(op_message.c_str(), op_message.size());
+                    TracyOpTTNNExternal(op_id, op, input_tensors);
 
                     return output_tensors;
                 }));

@@ -201,20 +201,6 @@ namespace tt::tt_metal{
         void FreshProfilerDeviceLog();
 
         /**
-         * Profile scopes in tt_metal API
-         *
-         * */
-
-        class ProfileTTMetalScope
-        {
-            private:
-                string scopeName = "";
-            public:
-                ProfileTTMetalScope (const string& scopeNameArg);
-                ~ProfileTTMetalScope ();
-        };
-
-        /**
          * Copies data from a host buffer into a buffer within the device DRAM channel
          *
          * Return value: bool

@@ -94,6 +94,7 @@ class test_multi_op(default_setup):
             "end": {"core": "ANY", "risc": "BRISC", "zone_name": "BRISC-KERNEL"},
         },
     }
+    detectOps = False
 
 
 class test_custom_cycle_count(default_setup):
@@ -129,6 +130,7 @@ class test_custom_cycle_count(default_setup):
             "end": {"core": "ANY", "risc": "TRISC_2", "zone_name": "TRISC-KERNEL"},
         },
     }
+    detectOps = False
 
 
 class test_full_buffer(default_setup):
@@ -140,6 +142,7 @@ class test_full_buffer(default_setup):
             "end": {"risc": "ANY", "zone_name": "TEST-FULL"},
         }
     }
+    detectOps = False
 
 
 class test_noc(default_setup):
@@ -151,3 +154,4 @@ class test_noc(default_setup):
             "end": {"risc": "NCRISC", "zone_name": "NOC-FOR-LOOP"},
         }
     }
+    detectOps = False

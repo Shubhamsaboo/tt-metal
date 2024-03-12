@@ -12,6 +12,7 @@ import time
 
 from loguru import logger
 
+from tt_metal.tools.profiler.process_ops_logs import process_ops
 from tt_metal.tools.profiler.common import (
     TT_METAL_HOME,
     PROFILER_BIN_DIR,
@@ -107,7 +108,7 @@ def confirmTracyToolInstall(tool):
     return ret
 
 
-def run_report_setup(verbose):
+def run_report_setup(verbose, port):
     toolsReady = True
 
     logger.info("Verifying tracy profiling tools")
@@ -123,8 +124,13 @@ def run_report_setup(verbose):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        options = ""
+        if port:
+            options += f"-p {port}"
 
-        captureCommand = (f"{PROFILER_BIN_DIR / TRACY_CAPTURE_TOOL} -o {PROFILER_LOGS_DIR / TRACY_FILE_NAME} -f",)
+        captureCommand = (
+            f"{PROFILER_BIN_DIR / TRACY_CAPTURE_TOOL} -o {PROFILER_LOGS_DIR / TRACY_FILE_NAME} -f {options}",
+        )
         if verbose:
             logger.info(f"Capture command: {captureCommand}")
             captureProcess = subprocess.Popen(captureCommand, shell=True)
@@ -140,7 +146,7 @@ def run_report_setup(verbose):
     return toolsReady, captureProcess
 
 
-def generate_report():
+def generate_report(outFolder, nameAppend):
     tracyOutFile = PROFILER_LOGS_DIR / TRACY_FILE_NAME
     if not os.path.exists(tracyOutFile):
         logger.warning(
@@ -169,9 +175,7 @@ def generate_report():
 
     logger.info(f"Host side ops data report generated at {PROFILER_LOGS_DIR / TRACY_OPS_DATA_FILE_NAME}")
 
-    postProcessCmd = f"{PROFILER_SCRIPTS_ROOT}/process_ops_logs.py --date"
-
-    os.system(postProcessCmd)
+    process_ops(outFolder, nameAppend, True)
 
 
 def main():
@@ -185,6 +189,21 @@ def main():
     parser.add_option("-l", dest="lines", action="store_true", help="Profile every line of python code", default=False)
     parser.add_option("-r", dest="report", action="store_true", help="Generate ops report", default=False)
     parser.add_option("-v", dest="verbose", action="store_true", help="More info is printed to stdout", default=False)
+    parser.add_option("-d", dest="no_device", action="store_false", help="Do not include device data", default=True)
+    parser.add_option(
+        "-o", "--output-folder", action="store", help="Artifact output folder", type="string", dest="output_folder"
+    )
+    parser.add_option(
+        "-n",
+        "--name-append",
+        action="store",
+        help="Custom name to be added to report name",
+        type="string",
+        dest="name_append",
+    )
+    parser.add_option(
+        "-t", "--port", action="store", help="Internal port used by the script", type="string", dest="port"
+    )
 
     if not sys.argv[1:]:
         parser.print_usage()
@@ -198,7 +217,7 @@ def main():
     if len(args) > 0:
         doReport = False
         if options.report:
-            doReport, captureProcess = run_report_setup(options.verbose)
+            doReport, captureProcess = run_report_setup(options.verbose, options.port)
 
         if not doReport:
             if options.module:
@@ -240,7 +259,15 @@ def main():
             osCmd = " ".join(originalArgs[1:])
 
             testCommand = f"python -m tracy {osCmd}"
-            testProcess = subprocess.Popen([testCommand], shell=True, env=dict(os.environ), preexec_fn=os.setsid)
+
+            envVars = dict(os.environ)
+            if options.no_device:
+                envVars["TT_METAL_DEVICE_PROFILER"] = "1"
+
+            if options.port:
+                envVars["TRACY_PORT"] = options.port
+
+            testProcess = subprocess.Popen([testCommand], shell=True, env=envVars, preexec_fn=os.setsid)
 
             def signal_handler(sig, frame):
                 os.killpg(os.getpgid(testProcess.pid), signal.SIGTERM)
@@ -254,7 +281,7 @@ def main():
             logger.info(f"Test fully finished. Waiting for tracy capture tool to finish ...")
             captureProcess.communicate()
 
-            generate_report()
+            generate_report(options.output_folder, options.name_append)
 
     else:
         parser.print_usage()
