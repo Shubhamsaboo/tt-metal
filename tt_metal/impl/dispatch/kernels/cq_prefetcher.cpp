@@ -138,11 +138,11 @@ void kernel_main() {
     PullAndRelayCfg dst_pr_cfg(program_event_buffer);
     dst_pr_cfg.dispatch_synchronization_semaphore = dispatch_semaphore_addr;
 
+#if defined(COMPILE_FOR_IDLE_ERISC)
+    uint32_t heartbeat = 0;
+#endif
     while (true) {
         if constexpr (read_from_issue_queue) {
-#if defined(COMPILE_FOR_IDLE_ERISC)
-            uint32_t heartbeat = 0;
-#endif
             // we will also need to poll the program event buffer
             while (not issue_queue_space_available()) {
                 if constexpr (pull_and_push_config == tt::PullAndPushConfig::LOCAL) {
@@ -166,6 +166,9 @@ void kernel_main() {
                     if (consumer_is_idle<2>(dispatch_semaphore_addr)) {
                         program_event_buffer.write_events<write_to_completion_queue>();
                     }
+#if defined(COMPILE_FOR_IDLE_ERISC)
+                    RISC_POST_HEARTBEAT(heartbeat);
+#endif
                 }
                 noc_semaphore_inc(my_noc_encoding | uint32_t(pull_semaphore_addr), -1); // Two's complement addition
                 noc_async_write_barrier();

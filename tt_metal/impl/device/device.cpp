@@ -613,19 +613,43 @@ void Device::compile_command_queue_programs() {
                         (uint32_t)tt::PullAndPushConfig::PULL_FROM_REMOTE
                     };
 
-                    tt::tt_metal::CreateKernel(
-                        *command_queue_program_ptr,
-                        pull_and_push_kernel,
-                        completion_q_writer_location,
-                        tt::tt_metal::DataMovementConfig {
-                            .processor = tt::tt_metal::DataMovementProcessor::RISCV_0,
-                            .noc = tt::tt_metal::NOC::RISCV_0_default,
-                            .compile_args = completion_q_writer_args,
-                            .defines = completion_q_defines});
+                    if (dispatch_core_type != CoreType::ETH) {
+                        tt::tt_metal::CreateKernel(
+                            *command_queue_program_ptr,
+                            pull_and_push_kernel,
+                            completion_q_writer_location,
+                            tt::tt_metal::DataMovementConfig{
+                                .processor = tt::tt_metal::DataMovementProcessor::RISCV_0,
+                                .noc = tt::tt_metal::NOC::RISCV_0_default,
+                                .compile_args = completion_q_writer_args,
+                                .defines = completion_q_defines});
+                    } else {
+                        tt::tt_metal::CreateKernel(
+                            *command_queue_program_ptr,
+                            pull_and_push_kernel,
+                            completion_q_writer_location,
+                            tt::tt_metal::EthernetConfig{
+                                .eth_mode = Eth::IDLE,
+                                .noc = tt::tt_metal::NOC::RISCV_0_default,
+                                .compile_args = completion_q_writer_args,
+                                .defines = completion_q_defines});
+                    }
 
-                    tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, completion_q_writer_location, num_eth_command_slots); // push semaphore
-                    tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, completion_q_writer_location, 0); // pull semaphore
-                    tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, completion_q_writer_location, num_tensix_command_slots); // semaphore between push&pull kernel and dispatch kernel
+                    tt::tt_metal::CreateSemaphore(
+                        *command_queue_program_ptr,
+                        completion_q_writer_location,
+                        num_eth_command_slots,
+                        dispatch_core_type);  // push semaphore
+                    tt::tt_metal::CreateSemaphore(
+                        *command_queue_program_ptr,
+                        completion_q_writer_location,
+                        0,
+                        dispatch_core_type);  // pull semaphore
+                    tt::tt_metal::CreateSemaphore(
+                        *command_queue_program_ptr,
+                        completion_q_writer_location,
+                        num_tensix_command_slots,
+                        dispatch_core_type);  // semaphore between push&pull kernel and dispatch kernel
                 }
             }
         }
@@ -639,8 +663,11 @@ void Device::compile_command_queue_programs() {
 
         tt_cxy_pair remote_processor_location = dispatch_core_manager::get(num_hw_cqs).remote_push_and_pull_core(this->id(), channel, cq_id);
         tt_cxy_pair dispatch_location = dispatch_core_manager::get(num_hw_cqs).command_dispatcher_core(this->id(), channel, cq_id);
-        CoreCoord remote_processor_physical_core = get_physical_core_coordinate(remote_processor_location, CoreType::WORKER);
-        CoreCoord dispatch_physical_core = get_physical_core_coordinate(dispatch_location, CoreType::WORKER);
+        CoreType dispatch_core_type = dispatch_core_manager::get(num_hw_cqs).get_dispatch_core_type(this->id());
+
+        CoreCoord remote_processor_physical_core =
+            get_physical_core_coordinate(remote_processor_location, dispatch_core_type);
+        CoreCoord dispatch_physical_core = get_physical_core_coordinate(dispatch_location, dispatch_core_type);
 
         // Set up the dst router to receive fast dispatch packets
         tt_cxy_pair logical_eth_router_remote_dst = tt::Cluster::instance().get_eth_core_for_dispatch_core(remote_processor_location, EthRouterMode::BI_DIR_TUNNELING, mmio_device_id);
@@ -703,21 +730,38 @@ void Device::compile_command_queue_programs() {
             {"DISPATCH_NOC_Y", std::to_string(dispatch_physical_core.y)},
         };
 
-        tt::tt_metal::CreateKernel(
-            *command_queue_program_ptr,
-            "tt_metal/impl/dispatch/kernels/cq_prefetcher.cpp",
-            remote_processor_location,
-            tt::tt_metal::DataMovementConfig {
-                .processor = tt::tt_metal::DataMovementProcessor::RISCV_0,
-                .noc = tt::tt_metal::NOC::RISCV_0_default,
-                .compile_args = remote_pull_and_push_compile_args,
-                .defines = remote_pull_and_push_defines});
+        if (dispatch_core_type != CoreType::ETH) {
+            tt::tt_metal::CreateKernel(
+                *command_queue_program_ptr,
+                "tt_metal/impl/dispatch/kernels/cq_prefetcher.cpp",
+                remote_processor_location,
+                tt::tt_metal::DataMovementConfig{
+                    .processor = tt::tt_metal::DataMovementProcessor::RISCV_0,
+                    .noc = tt::tt_metal::NOC::RISCV_0_default,
+                    .compile_args = remote_pull_and_push_compile_args,
+                    .defines = remote_pull_and_push_defines});
+        } else {
+            tt::tt_metal::CreateKernel(
+                *command_queue_program_ptr,
+                "tt_metal/impl/dispatch/kernels/cq_prefetcher.cpp",
+                remote_processor_location,
+                tt::tt_metal::EthernetConfig{
+                    .eth_mode = Eth::IDLE,
+                    .noc = tt::tt_metal::NOC::RISCV_0_default,
+                    .compile_args = remote_pull_and_push_compile_args,
+                    .defines = remote_pull_and_push_defines});
+        }
 
         // first semaphore is between pull_and_relay and pusher
-        tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, remote_processor_location, num_eth_command_slots);
+        tt::tt_metal::CreateSemaphore(
+            *command_queue_program_ptr, remote_processor_location, num_eth_command_slots, dispatch_core_type);
         // second semaphore is between processor and dispatcher to detect whether dispatcher can accept commands
-        tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, remote_processor_location, 0);
-        tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, remote_processor_location, num_tensix_command_slots); // semaphore between push&pull kernel and dispatch kernel
+        tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, remote_processor_location, 0, dispatch_core_type);
+        tt::tt_metal::CreateSemaphore(
+            *command_queue_program_ptr,
+            remote_processor_location,
+            num_tensix_command_slots,
+            dispatch_core_type);  // semaphore between push&pull kernel and dispatch kernel
 
         std::vector<uint32_t> dispatch_compile_args = {cmd_start_tensix, consumer_data_buffer_size_tensix};
 
@@ -727,17 +771,29 @@ void Device::compile_command_queue_programs() {
             {"PRODUCER_NOC_Y", std::to_string(remote_processor_physical_core.y)},
         };
 
-        tt::tt_metal::CreateKernel(
-            *command_queue_program_ptr,
-            "tt_metal/impl/dispatch/kernels/cq_dispatcher.cpp",
-            dispatch_location,
-            tt::tt_metal::DataMovementConfig {
-                .processor = tt::tt_metal::DataMovementProcessor::RISCV_0,
-                .noc = tt::tt_metal::NOC::RISCV_0_default,
-                .compile_args = dispatch_compile_args,
-                .defines = remote_dispatch_defines});
+        if (dispatch_core_type != CoreType::ETH) {
+            tt::tt_metal::CreateKernel(
+                *command_queue_program_ptr,
+                "tt_metal/impl/dispatch/kernels/cq_dispatcher.cpp",
+                dispatch_location,
+                tt::tt_metal::DataMovementConfig{
+                    .processor = tt::tt_metal::DataMovementProcessor::RISCV_0,
+                    .noc = tt::tt_metal::NOC::RISCV_0_default,
+                    .compile_args = dispatch_compile_args,
+                    .defines = remote_dispatch_defines});
+        } else {
+            tt::tt_metal::CreateKernel(
+                *command_queue_program_ptr,
+                "tt_metal/impl/dispatch/kernels/cq_dispatcher.cpp",
+                dispatch_location,
+                tt::tt_metal::EthernetConfig{
+                    .eth_mode = Eth::IDLE,
+                    .noc = tt::tt_metal::NOC::RISCV_0_default,
+                    .compile_args = dispatch_compile_args,
+                    .defines = remote_dispatch_defines});
+        }
 
-        tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, dispatch_location, 0);
+        tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, dispatch_location, 0, dispatch_core_type);
     }
     detail::CompileProgram(this, *command_queue_program_ptr);
     this->command_queue_programs.push_back(std::move(command_queue_program_ptr));
