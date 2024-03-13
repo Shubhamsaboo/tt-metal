@@ -47,6 +47,17 @@ inline void RISC_POST_STATUS(uint32_t status) {
   ptr[0] = status;
 }
 
+void init_sync_registers() {
+    volatile tt_reg_ptr uint* tiles_received_ptr;
+    volatile tt_reg_ptr uint* tiles_acked_ptr;
+    for (uint32_t operand = 0; operand < NUM_CIRCULAR_BUFFERS; operand++) {
+      tiles_received_ptr = get_cb_tiles_received_ptr(operand);
+      tiles_received_ptr[0] = 0;
+      tiles_acked_ptr = get_cb_tiles_acked_ptr(operand);
+      tiles_acked_ptr[0] = 0;
+    }
+}
+
 int main() {
 
     DEBUG_STATUS('I');
@@ -68,8 +79,7 @@ int main() {
     kernel_profiler::init_profiler();
     while (1) {
 
-        //UC FIXME: do i need this? init_sync_registers();
-
+        init_sync_registers();
         // Wait...
         DEBUG_STATUS('G', 'W');
         while (mailboxes->launch.run != RUN_MSG_GO)
