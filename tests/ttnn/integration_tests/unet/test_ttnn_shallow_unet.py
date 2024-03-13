@@ -97,7 +97,7 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c4_2["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.c4_2["use_shallow_conv_variant"] = False
             ttnn_module_args.c4["dtype"] = ttnn.bfloat8_b
-            ttnn_module_args.c4_2["dtype"] = ttnn.bfloat8_b
+            ttnn_module_args.c4_2["dtype"] = ttnn.bfloat16
             ttnn_module_args.c4["weights_dtype"] = ttnn.bfloat8_b
             ttnn_module_args.c4_2["weights_dtype"] = ttnn.bfloat8_b
             ttnn_module_args.c4["activation"] = "relu"  # Fuse relu with conv4
@@ -106,6 +106,7 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c4_2["deallocate_activation"] = True
             ttnn_module_args.c4["conv_blocking_and_parallelization_config_override"] = None
             ttnn_module_args.c4_2["conv_blocking_and_parallelization_config_override"] = None
+            ttnn_module_args.c4_2["output_layout"] = ttnn.ROW_MAJOR_LAYOUT
 
             ttnn_module_args.bnc["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.bnc_2["math_fidelity"] = ttnn.MathFidelity.LoFi
@@ -117,7 +118,9 @@ def create_custom_preprocessor(device):
             ttnn_module_args.bnc_2["activation"] = "relu"  # Fuse relu with bottle neck conv
             ttnn_module_args.bnc["deallocate_activation"] = True
             ttnn_module_args.bnc_2["deallocate_activation"] = True
-            ttnn_module_args.bnc["conv_blocking_and_parallelization_config_override"] = None
+            ttnn_module_args.bnc["conv_blocking_and_parallelization_config_override"] = {
+                "act_reshard_num_cores_nhw": 55
+            }
             ttnn_module_args.bnc_2["conv_blocking_and_parallelization_config_override"] = None
 
             ttnn_module_args.c5["math_fidelity"] = ttnn.MathFidelity.LoFi
@@ -179,7 +182,10 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c7["deallocate_activation"] = True
             ttnn_module_args.c7_2["deallocate_activation"] = True
             ttnn_module_args.c7_3["deallocate_activation"] = True
-            ttnn_module_args.c7["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
+            ttnn_module_args.c7["conv_blocking_and_parallelization_config_override"] = {
+                "act_block_h": 32,
+                "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 66,
+            }
             ttnn_module_args.c7["padded_input_channels"] = 48
             ttnn_module_args.c7_2["conv_blocking_and_parallelization_config_override"] = None
             ttnn_module_args.c7_3["conv_blocking_and_parallelization_config_override"] = None
@@ -199,7 +205,10 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c8["deallocate_activation"] = True
             ttnn_module_args.c8_2["deallocate_activation"] = True
             ttnn_module_args.c8_3["deallocate_activation"] = True
-            ttnn_module_args.c8["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
+            ttnn_module_args.c8["conv_blocking_and_parallelization_config_override"] = {
+                "act_block_h": 32,
+                "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 88,
+            }
             ttnn_module_args.c8_2["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
             ttnn_module_args.c8_3["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
 
