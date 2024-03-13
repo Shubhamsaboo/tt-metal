@@ -12,9 +12,9 @@ jobs:
       matrix:
         runner-info: [
           # N150
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "issue-upgrade-800mhz-reset"]},
           # N300
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "issue-upgrade-800mhz-reset"]},
         ]
     env:
       TT_METAL_ENV: ${{ vars.TT_METAL_ENV }}
@@ -72,9 +72,9 @@ jobs:
       matrix:
         runner-info: [
           # N150
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "issue-upgrade-800mhz-reset"]},
           # N300
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "issue-upgrade-800mhz-reset"]},
         ]
     env:
       TT_METAL_ENV: ${{ vars.TT_METAL_ENV }}
@@ -111,9 +111,9 @@ jobs:
       matrix:
         runner-info: [
           # N150
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "issue-upgrade-800mhz-reset"]},
           # N300
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "issue-upgrade-800mhz-reset"]},
         ]
     env:
       TT_METAL_ENV: ${{ vars.TT_METAL_ENV }}
@@ -149,9 +149,9 @@ jobs:
       matrix:
         runner-info: [
           # N150
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-1", "issue-upgrade-800mhz-reset"]},
           # N300
-          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "fw-date-2024-03-05"]},
+          {arch: wormhole_b0, runs-on: ["arch-wormhole_b0", "multi-chip-num-pcie-1", "multi-chip-num-chips-2", "issue-upgrade-800mhz-reset"]},
         ]
     env:
       TT_METAL_ENV: ${{ vars.TT_METAL_ENV }}
