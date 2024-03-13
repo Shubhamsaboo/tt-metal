@@ -212,7 +212,7 @@ ll_api::memory read_mem_from_core(chip_id_t chip, const CoreCoord &core, const l
     return read_mem;
 }
 
-void program_brisc_startup_addr(chip_id_t chip_id, const CoreCoord &core) {
+void program_risc_startup_addr(chip_id_t chip_id, const CoreCoord &core) {
     // Options for handling brisc fw not starting at mem[0]:
     // 1) Program the register for the start address out of reset
     // 2) Encode a jump in crt0 for mem[0]
@@ -223,38 +223,13 @@ void program_brisc_startup_addr(chip_id_t chip_id, const CoreCoord &core) {
     constexpr uint32_t jal_opcode = 0x6f;
     constexpr uint32_t jal_max_offset = 0x0007ffff;
     uint32_t opcode = jal_opcode;
-    assert(MEM_BRISC_FIRMWARE_BASE < jal_max_offset);
+    uint32_t firmware_base = is_ethernet_core(core, chip_id) ? MEM_IERISC_FIRMWARE_BASE : MEM_BRISC_FIRMWARE_BASE;
+    assert(firmware_base < jal_max_offset);
     // See riscv spec for offset encoding below
     uint32_t jal_offset_bit_20 = 0;
-    uint32_t jal_offset_bits_10_to_1 = (MEM_BRISC_FIRMWARE_BASE & 0x7fe) << 20;
-    uint32_t jal_offset_bit_11 = (MEM_BRISC_FIRMWARE_BASE & 0x800) << 9;
-    uint32_t jal_offset_bits_19_to_12 = (MEM_BRISC_FIRMWARE_BASE & 0xff000) << 0;
-    uint32_t jal_offset =
-        jal_offset_bit_20 |
-        jal_offset_bits_10_to_1 |
-        jal_offset_bit_11 |
-        jal_offset_bits_19_to_12;
-    jump_to_fw.push_back(jal_offset | opcode);
-    write_hex_vec_to_core(chip_id, core, jump_to_fw, 0);
-}
-
-void program_idle_erisc_startup_addr(chip_id_t chip_id, const CoreCoord &core) {
-    // Options for handling idle erisc fw not starting at mem[0]:
-    // 1) Program the register for the start address out of reset
-    // 2) Encode a jump in crt0 for mem[0]
-    // 3) Write the jump to mem[0] here
-    // This does #3.  #1 may be best, #2 gets messy (elf files
-    // drop any section before .init, crt0 needs ifdefs, etc)
-    vector<uint32_t> jump_to_fw;
-    constexpr uint32_t jal_opcode = 0x6f;
-    constexpr uint32_t jal_max_offset = 0x0007ffff;
-    uint32_t opcode = jal_opcode;
-    assert(MEM_IERISC_FIRMWARE_BASE < jal_max_offset);
-    // See riscv spec for offset encoding below
-    uint32_t jal_offset_bit_20 = 0;
-    uint32_t jal_offset_bits_10_to_1 = (MEM_IERISC_FIRMWARE_BASE & 0x7fe) << 20;
-    uint32_t jal_offset_bit_11 = (MEM_IERISC_FIRMWARE_BASE & 0x800) << 9;
-    uint32_t jal_offset_bits_19_to_12 = (MEM_IERISC_FIRMWARE_BASE & 0xff000) << 0;
+    uint32_t jal_offset_bits_10_to_1 = (firmware_base & 0x7fe) << 20;
+    uint32_t jal_offset_bit_11 = (firmware_base & 0x800) << 9;
+    uint32_t jal_offset_bits_19_to_12 = (firmware_base & 0xff000) << 0;
     uint32_t jal_offset =
         jal_offset_bit_20 |
         jal_offset_bits_10_to_1 |

@@ -192,11 +192,11 @@ void Device::initialize_firmware(CoreCoord phys_core, launch_msg_t *launch_msg) 
             uint32_t kernel_size16 = llrt::get_binary_code_size16(binary_mem, eriscv_id);
             log_debug(LogDevice, "ERISC fw binary size: {} in bytes", kernel_size16 * 16);
             llrt::test_load_write_read_risc_binary(binary_mem, this->id(), phys_core, eriscv_id);
-            llrt::program_idle_erisc_startup_addr(this->id(), phys_core);
+            llrt::program_risc_startup_addr(this->id(), phys_core);
             llrt::write_launch_msg_to_core(this->id(), phys_core, launch_msg);
         }
     } else {
-        llrt::program_brisc_startup_addr(this->id(), phys_core);
+        llrt::program_risc_startup_addr(this->id(), phys_core);
         for (int riscv_id = 0; riscv_id < 5; riscv_id++) {
             ll_api::memory binary_mem =
                 llrt::get_risc_binary(firmware_build_states_[riscv_id]->get_target_out_path(""));
