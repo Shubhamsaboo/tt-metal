@@ -163,3 +163,9 @@ clean: set_up_kernels/clean eager_package/clean
 
 nuke: clean python_env/clean
 	rm -rf $(OUT)
+
+.PHONY: stubs
+stubs:
+	pip install mypy
+	stubgen -m tt_lib -m tt_lib.device -m tt_lib.profiler -m tt_lib.tensor -m tt_lib.dtx -m tt_lib.operations -o tt_eager
+	stubgen -p ttnn._ttnn -o ttnn
