@@ -16,7 +16,7 @@ using namespace tt::tt_metal;
 // Starting L1 address of commands
 inline uint32_t get_command_start_l1_address(bool use_eth_l1) {
     //place holder for future relocatoin of unreserved base on ethernet cores.
-    return use_eth_l1 ? L1_UNRESERVED_BASE : L1_UNRESERVED_BASE;
+    return use_eth_l1 ? ERISC_L1_UNRESERVED_BASE : L1_UNRESERVED_BASE;
 }
 
 inline uint32_t get_eth_command_start_l1_address(SyncCBConfigRegion cq_region) {
