@@ -253,6 +253,10 @@ void Device::initialize_and_launch_firmware() {
     }
 
     for (const auto &eth_core : this->get_inactive_ethernet_cores()) {
+        if (this->is_mmio_capable() && eth_core == CoreCoord(0, 15)) {
+            //Channel 15 on MMIO chips is used by debug tools.
+            continue;
+        }
         CoreCoord phys_eth_core = this->ethernet_core_from_logical_core(eth_core);
         this->initialize_firmware(phys_eth_core, &launch_msg);
         not_done_idle_eth_cores.insert(phys_eth_core);
