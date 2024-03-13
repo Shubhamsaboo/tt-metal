@@ -563,7 +563,9 @@ void Device::compile_command_queue_programs() {
                 tt::tt_metal::CreateSemaphore(*command_queue_program_ptr, issue_q_reader_location, num_tensix_command_slots, dispatch_core_type); // semaphore between push&pull kernel and dispatch kernel
 
                 if (device_id == this->id()) {
-                    std::vector<uint32_t> consumer_compile_args = {cmd_start_tensix, consumer_data_buffer_size_tensix};
+                    uint32_t cmd_start_consumer = eth_core ? cmd_start_eth_dispatch : cmd_start_tensix;
+                    uint32_t consumer_data_buffer_size = eth_core ? consumer_data_buffer_size_eth_dispatch : consumer_data_buffer_size_tensix;
+                    std::vector<uint32_t> consumer_compile_args = {cmd_start_consumer, consumer_data_buffer_size};
 
                     if (dispatch_core_type != CoreType::ETH) {
                         tt::tt_metal::CreateKernel(
