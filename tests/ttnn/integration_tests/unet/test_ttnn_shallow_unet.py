@@ -22,9 +22,11 @@ import tt_lib.profiler as profiler
 
 import ttnn
 
+num_groups = 4
+
 
 def update_ttnn_module_args(ttnn_module_args):
-    ttnn_module_args["use_1d_systolic_array"] = ttnn_module_args.in_channels < 256
+    ttnn_module_args["use_1d_systolic_array"] = True
 
 
 def create_custom_preprocessor(device):
@@ -43,11 +45,11 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c1["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.c1["padded_input_channels"] = None if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 16
             ttnn_module_args.c1["use_shallow_conv_variant"] = (
-                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else True
+                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else num_groups < 8
             )
             ttnn_module_args.c1_2["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.c1_2["use_shallow_conv_variant"] = (
-                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else True
+                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else num_groups < 4
             )
             ttnn_module_args.c1["dtype"] = ttnn.bfloat8_b
             ttnn_module_args.c1_2["dtype"] = ttnn.bfloat8_b
@@ -144,11 +146,11 @@ def create_custom_preprocessor(device):
 
             ttnn_module_args.c6["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.c6["use_shallow_conv_variant"] = (
-                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else True
+                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else num_groups < 4
             )
             ttnn_module_args.c6_2["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.c6_2["use_shallow_conv_variant"] = (
-                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else True
+                False if device.arch() == ttl.device.Arch.WORMHOLE_B0 else num_groups < 4
             )
             ttnn_module_args.c6_3["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.c6["dtype"] = ttnn.bfloat8_b
@@ -186,7 +188,7 @@ def create_custom_preprocessor(device):
                 "act_block_h": 32,
                 "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 66,
             }
-            ttnn_module_args.c7["padded_input_channels"] = 48
+            ttnn_module_args.c7["padded_input_channels"] = 48 * num_groups
             ttnn_module_args.c7_2["conv_blocking_and_parallelization_config_override"] = None
             ttnn_module_args.c7_3["conv_blocking_and_parallelization_config_override"] = None
 
@@ -330,92 +332,92 @@ class UNet(nn.Module):
     def __init__(self):
         super(UNet, self).__init__()
         # Contracting Path
-        self.c1 = nn.Conv2d(3, 16, kernel_size=3, padding=1)
-        self.b1 = nn.BatchNorm2d(16)
+        self.c1 = nn.Conv2d(4 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b1 = nn.BatchNorm2d(16 * num_groups)
         self.r1 = nn.ReLU(inplace=True)
-        self.c1_2 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b1_2 = nn.BatchNorm2d(16)
+        self.c1_2 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b1_2 = nn.BatchNorm2d(16 * num_groups)
         self.r1_2 = nn.ReLU(inplace=True)
         self.p1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.c2 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b2 = nn.BatchNorm2d(16)
+        self.c2 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b2 = nn.BatchNorm2d(16 * num_groups)
         self.r2 = nn.ReLU(inplace=True)
-        self.c2_2 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b2_2 = nn.BatchNorm2d(16)
+        self.c2_2 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b2_2 = nn.BatchNorm2d(16 * num_groups)
         self.r2_2 = nn.ReLU(inplace=True)
         self.p2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.c3 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
-        self.b3 = nn.BatchNorm2d(32)
+        self.c3 = nn.Conv2d(16 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b3 = nn.BatchNorm2d(32 * num_groups)
         self.r3 = nn.ReLU(inplace=True)
-        self.c3_2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b3_2 = nn.BatchNorm2d(32)
+        self.c3_2 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b3_2 = nn.BatchNorm2d(32 * num_groups)
         self.r3_2 = nn.ReLU(inplace=True)
         self.p3 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.c4 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b4 = nn.BatchNorm2d(32)
+        self.c4 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b4 = nn.BatchNorm2d(32 * num_groups)
         self.r4 = nn.ReLU(inplace=True)
-        self.c4_2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b4_2 = nn.BatchNorm2d(32)
+        self.c4_2 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b4_2 = nn.BatchNorm2d(32 * num_groups)
         self.r4_2 = nn.ReLU(inplace=True)
         self.p4 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.bnc = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.bnb = nn.BatchNorm2d(64)
+        self.bnc = nn.Conv2d(32 * num_groups, 64 * num_groups, kernel_size=3, padding=1)
+        self.bnb = nn.BatchNorm2d(64 * num_groups)
         self.bnr = nn.ReLU(inplace=True)
-        self.bnc_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
-        self.bnb_2 = nn.BatchNorm2d(64)
+        self.bnc_2 = nn.Conv2d(64 * num_groups, 64 * num_groups, kernel_size=3, padding=1)
+        self.bnb_2 = nn.BatchNorm2d(64 * num_groups)
         self.bnr_2 = nn.ReLU(inplace=True)
 
         self.u4 = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
 
-        self.c5 = nn.Conv2d(96, 32, kernel_size=3, padding=1)
-        self.b5 = nn.BatchNorm2d(32)
+        self.c5 = nn.Conv2d(96 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b5 = nn.BatchNorm2d(32 * num_groups)
         self.r5 = nn.ReLU(inplace=True)
-        self.c5_2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b5_2 = nn.BatchNorm2d(32)
+        self.c5_2 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b5_2 = nn.BatchNorm2d(32 * num_groups)
         self.r5_2 = nn.ReLU(inplace=True)
-        self.c5_3 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b5_3 = nn.BatchNorm2d(32)
+        self.c5_3 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b5_3 = nn.BatchNorm2d(32 * num_groups)
         self.r5_3 = nn.ReLU(inplace=True)
         self.u3 = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
 
-        self.c6 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.b6 = nn.BatchNorm2d(32)
+        self.c6 = nn.Conv2d(64 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b6 = nn.BatchNorm2d(32 * num_groups)
         self.r6 = nn.ReLU(inplace=True)
-        self.c6_2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b6_2 = nn.BatchNorm2d(32)
+        self.c6_2 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b6_2 = nn.BatchNorm2d(32 * num_groups)
         self.r6_2 = nn.ReLU(inplace=True)
-        self.c6_3 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.b6_3 = nn.BatchNorm2d(32)
+        self.c6_3 = nn.Conv2d(32 * num_groups, 32 * num_groups, kernel_size=3, padding=1)
+        self.b6_3 = nn.BatchNorm2d(32 * num_groups)
         self.r6_3 = nn.ReLU(inplace=True)
         self.u2 = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
 
-        self.c7 = nn.Conv2d(48, 16, kernel_size=3, padding=1)
-        self.b7 = nn.BatchNorm2d(16)
+        self.c7 = nn.Conv2d(48 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b7 = nn.BatchNorm2d(16 * num_groups)
         self.r7 = nn.ReLU(inplace=True)
-        self.c7_2 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b7_2 = nn.BatchNorm2d(16)
+        self.c7_2 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b7_2 = nn.BatchNorm2d(16 * num_groups)
         self.r7_2 = nn.ReLU(inplace=True)
-        self.c7_3 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b7_3 = nn.BatchNorm2d(16)
+        self.c7_3 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b7_3 = nn.BatchNorm2d(16 * num_groups)
         self.r7_3 = nn.ReLU(inplace=True)
         self.u1 = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
 
-        self.c8 = nn.Conv2d(32, 16, kernel_size=3, padding=1)
-        self.b8 = nn.BatchNorm2d(16)
+        self.c8 = nn.Conv2d(32 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b8 = nn.BatchNorm2d(16 * num_groups)
         self.r8 = nn.ReLU(inplace=True)
-        self.c8_2 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b8_2 = nn.BatchNorm2d(16)
+        self.c8_2 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b8_2 = nn.BatchNorm2d(16 * num_groups)
         self.r8_2 = nn.ReLU(inplace=True)
-        self.c8_3 = nn.Conv2d(16, 16, kernel_size=3, padding=1)
-        self.b8_3 = nn.BatchNorm2d(16)
+        self.c8_3 = nn.Conv2d(16 * num_groups, 16 * num_groups, kernel_size=3, padding=1)
+        self.b8_3 = nn.BatchNorm2d(16 * num_groups)
         self.r8_3 = nn.ReLU(inplace=True)
 
         # Output layer
-        self.output_layer = nn.Conv2d(16, 1, kernel_size=1)
+        self.output_layer = nn.Conv2d(16 * num_groups, 1, kernel_size=1)
 
     def forward(self, x):
         # Contracting Path
@@ -537,7 +539,7 @@ if __name__ == "__main__":
 
     torch_model.load_state_dict(new_state_dict)
 
-    torch_input_tensor = torch.randn(2, 3, 1056, 160)  # Batch size of 2, 3 channels (RGB), 1056x160 input
+    torch_input_tensor = torch.randn(2, 4 * num_groups, 1056, 160)  # Batch size of 2, 3 channels (RGB), 1056x160 input
     torch_output_tensor = torch_model(torch_input_tensor)
 
     reader_patterns_cache = {}
@@ -557,12 +559,13 @@ if __name__ == "__main__":
     input_shape = torch_input_tensor.shape
     input_tensor = torch.permute(torch_input_tensor, (0, 2, 3, 1))
 
-    # Pad to 16 if grayskull run and 32 for wormhole
     input_tensor = input_tensor.reshape(
         input_tensor.shape[0], 1, input_tensor.shape[1] * input_tensor.shape[2], input_tensor.shape[3]
     )
+    # Pad to 16 if grayskull run and 32 for wormhole
     pad = 32 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 16
-    input_tensor = torch.nn.functional.pad(input_tensor, (0, pad - input_tensor.shape[-1]))
+    if input_tensor.shape[-1] < pad:
+        input_tensor = torch.nn.functional.pad(input_tensor, (0, pad - input_tensor.shape[-1]))
     input_tensor = ttnn.from_torch(input_tensor, dtype=ttnn.bfloat16)
 
     warmup = 1
@@ -585,8 +588,8 @@ if __name__ == "__main__":
     # Tensor Postprocessing
     #
     output_tensor = ttnn.to_torch(output_tensor)
-    # unpad to 3
-    output_tensor = output_tensor[:, :, :, :3]
+    # unpad to 4
+    output_tensor = output_tensor[:, :, :, : (4 * num_groups)]
     output_tensor = output_tensor.reshape(input_shape[0], input_shape[2], input_shape[3], input_shape[1])
     output_tensor = torch.permute(output_tensor, (0, 3, 1, 2))
     output_tensor = output_tensor.to(torch_input_tensor.dtype)
