@@ -79,11 +79,6 @@ def test_multi_core_multi_launch():
 
 
 @run_test
-def test_out_of_order():
-    pass
-
-
-@run_test
 def test_very_long_launch_delta():
     pass
 

@@ -75,6 +75,7 @@ class DeviceProfiler {
                 CoreCoord core,
                 int core_flat,
                 int risc_num,
+                uint64_t stat_value,
                 uint32_t timer_id,
                 uint64_t timestamp
                 );

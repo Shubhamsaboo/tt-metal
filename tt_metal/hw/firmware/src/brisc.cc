@@ -62,6 +62,8 @@ CBInterface cb_interface[NUM_CIRCULAR_BUFFERS] __attribute__((used));
 namespace kernel_profiler {
     uint32_t wIndex __attribute__((used));
     uint32_t stackSize __attribute__((used)) = 0;
+    uint32_t sums[SUM_COUNT] __attribute__((used)) = {0};
+    uint32_t sumIDs[SUM_COUNT] __attribute__((used)) = {0};
 }
 
 void enable_power_management() {

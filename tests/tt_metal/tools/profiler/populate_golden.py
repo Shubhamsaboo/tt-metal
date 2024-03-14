@@ -66,12 +66,12 @@ def main(wipe):
                 lines = []
                 with open(csvPath, "r") as deviceLog:
                     lines = deviceLog.readlines()
-                    if "zone name" not in lines[1]:
+                    if "stat value" not in lines[1]:
                         csvIsOld = True
 
                 if csvIsOld:
                     infoHead = lines[0]
-                    csvHead = "PCIe slot, core_x, core_y, RISC processor type, timer_id, time[cycles since reset], Run ID, zone name, zone phase, source line, source file\n"
+                    csvHead = "PCIe slot, core_x, core_y, RISC processor type, timer_id, time[cycles since reset], stat value, Run ID, zone name, zone phase, source line, source file\n"
                     lines = lines[1:]
                     with open(csvPath, "w") as deviceLog:
                         for line in lines:
@@ -83,25 +83,11 @@ def main(wipe):
                             tmpLog.write(infoHead)
                             tmpLog.write(csvHead)
                             newFields = csvRows.fieldnames
-                            newFields.append(" Run ID")
-                            newFields.append(" zone name")
-                            newFields.append(" zone phase")
-                            newFields.append(" source line")
-                            newFields.append(" source file")
+                            newFields = newFields[:5] + [" stat value"] + newFields[5:]
                             csvTmp = csv.DictWriter(tmpLog, newFields)
 
                             for row in csvRows:
-                                row[" Run ID"] = 0
-                                row[" source line"] = 0
-                                if row[" timer_id"] in [" 1", " 2", " 3", " 4"]:
-                                    if row[" timer_id"] in [" 1", " 4"]:
-                                        row[" zone name"] = f"{row[' RISC processor type'].strip()}-FW"
-                                    else:
-                                        row[" zone name"] = f"{row[' RISC processor type'].strip()}-KERNEL"
-                                    if row[" timer_id"] in [" 1", " 2"]:
-                                        row[" zone phase"] = "begin"
-                                    else:
-                                        row[" zone phase"] = "end"
+                                row[" stat value"] = 0
                                 csvTmp.writerow(row)
 
                     os.system(f"cp tmp.csv {csvPath}")

@@ -72,6 +72,16 @@ class default_setup(metaclass=MergeMetaclass):
             "start": {"core": "ANY", "risc": "ERISC", "zone_name": "ERISC-KERNEL"},
             "end": {"core": "ANY", "risc": "ERISC", "zone_name": "ERISC-KERNEL"},
         },
+        "device_compute_cb_wait_front": {
+            "across": "ops",
+            "type": "sum",
+            "marker": {"risc": "TRISC_0", "zone_name": "CB-COMPUTE-WAIT-FRONT"},
+        },
+        "device_compute_cb_reserve_back": {
+            "across": "ops",
+            "type": "sum",
+            "marker": {"risc": "TRISC_2", "zone_name": "CB-COMPUTE-RESERVE-BACK"},
+        },
     }
 
     displayStats = ["Count", "Average", "Max", "Median", "Min", "Sum", "Range"]

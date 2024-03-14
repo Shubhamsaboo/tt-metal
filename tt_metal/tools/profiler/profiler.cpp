@@ -99,46 +99,65 @@ void DeviceProfiler::readRiscProfilerResults(
                 }
                 else if (newRunStart)
                 {
+                    newRunStart = false;
+
                     //TODO(MO): Cleanup magic numbers
                     riscNumRead = profile_buffer[index] & 0x7;
                     coreFlatIDRead = (profile_buffer[index] >> 3) & 0xFF;
-
                     runCounterRead = profile_buffer[index + 1];
-
-                    newRunStart = false;
                 }
                 else
                 {
-                    uint32_t time_H = profile_buffer[index] & 0xFFF;
-                    if (time_H)
+                    uint32_t phase = (profile_buffer[index] >> 28) & 0x7;
+                    if (phase < 2)
+                    {
+                        uint32_t time_H = profile_buffer[index] & 0xFFF;
+                        uint32_t marker = (profile_buffer[index] >> 12) & 0x7FFFF ;
+                        if (marker || time_H)
+                        {
+                            uint32_t time_L = profile_buffer[index + 1];
+
+                            TT_ASSERT (riscNumRead == riscNum,
+                                    fmt::format("Unexpected risc id, expected {}, read {}. In core {},{} at run {}",
+                                        riscNum,
+                                        riscNumRead,
+                                        worker_core.x,
+                                        worker_core.y,
+                                        runCounterRead)
+                                    );
+                            TT_ASSERT (coreFlatIDRead == coreFlatID,
+                                    fmt::format("Unexpected core id, expected {}, read {}. In core {},{} at run {}",
+                                        coreFlatID,
+                                        coreFlatIDRead,
+                                        worker_core.x,
+                                        worker_core.y,
+                                        runCounterRead));
+
+                            dumpResultToFile(
+                                    runCounterRead,
+                                    device_id,
+                                    worker_core,
+                                    coreFlatID,
+                                    riscEndIndex,
+                                    0,
+                                    marker,
+                                    (uint64_t(time_H) << 32) | time_L);
+                        }
+                    }
+                    else if (phase == 2)
                     {
                         uint32_t marker = (profile_buffer[index] >> 12) & 0x7FFFF ;
-                        uint32_t time_L = profile_buffer[index + 1];
+                        uint32_t sum = profile_buffer[index + 1];
 
-
-                        TT_ASSERT (riscNumRead == riscNum,
-                                fmt::format("Unexpected risc id, expected {}, read {}. In core {},{} at run {}",
-                                    riscNum,
-                                    riscNumRead,
-                                    worker_core.x,
-                                    worker_core.y,
-                                    runCounterRead)
-                                );
-                        TT_ASSERT (coreFlatIDRead == coreFlatID,
-                                fmt::format("Unexpected core id, expected {}, read {}. In core {},{} at run {}",
-                                    coreFlatID,
-                                    coreFlatIDRead,
-                                    worker_core.x,
-                                    worker_core.y,
-                                    runCounterRead));
-
-
+                        uint32_t time_H = profile_buffer[bufferRiscShift + kernel_profiler::GUARANTEED_MARKER_1_H] & 0xFFF;
+                        uint32_t time_L = profile_buffer[bufferRiscShift + kernel_profiler::GUARANTEED_MARKER_1_H + 1];
                         dumpResultToFile(
                                 runCounterRead,
                                 device_id,
                                 worker_core,
                                 coreFlatID,
                                 riscEndIndex,
+                                sum,
                                 marker,
                                 (uint64_t(time_H) << 32) | time_L);
                     }
@@ -170,6 +189,7 @@ void DeviceProfiler::dumpResultToFile(
         CoreCoord core,
         int core_flat,
         int risc_num,
+        uint64_t stat_value,
         uint32_t timer_id,
         uint64_t timestamp
         ){
@@ -178,7 +198,11 @@ void DeviceProfiler::dumpResultToFile(
     std::ofstream log_file;
 
     tracy::TTDeviceEventPhase zone_phase = tracy::TTDeviceEventPhase::begin;
-    if (timer_id & (1<<16))
+    if (stat_value > 0)
+    {
+        zone_phase = tracy::TTDeviceEventPhase::sum;
+    }
+    else if (timer_id & (1<<16))
     {
         zone_phase = tracy::TTDeviceEventPhase::end;
     }
@@ -207,7 +231,7 @@ void DeviceProfiler::dumpResultToFile(
     {
         log_file.open(log_path);
         log_file << "ARCH: " << get_string_lowercase(device_architecture) << ", CHIP_FREQ[MHz]: " << device_core_frequency << std::endl;
-        log_file << "PCIe slot, core_x, core_y, RISC processor type, timer_id, time[cycles since reset], Run ID, zone name, zone phase, source line, source file" << std::endl;
+        log_file << "PCIe slot, core_x, core_y, RISC processor type, timer_id, time[cycles since reset], stat value, Run ID, zone name, zone phase, source line, source file" << std::endl;
         new_log = false;
     }
     else
@@ -215,13 +239,15 @@ void DeviceProfiler::dumpResultToFile(
         log_file.open(log_path, std::ios_base::app);
     }
 
-    log_file << fmt::format("{:4},{:3},{:3},{:>7},{:7},{:15},{:5},{:>25},{:>6},{:6},{}",
+    log_file << fmt::format("{:4},{:3},{:3},{:>7},{:7},{:15},{:15},{:5},{:>25},{:>6},{:6},{}",
+    //log_file << fmt::format("{},{},{},{},{},{},{},{},{},{},{}",
             device_id,
             core.x,
             core.y,
             tracy::riscName[risc_num],
             timer_id,
             timestamp,
+            stat_value,
             run_id,
             zone_name,
             magic_enum::enum_name(zone_phase),

@@ -9,6 +9,8 @@ namespace kernel_profiler{
     constexpr static uint32_t PADDING_MARKER = ((1<<16) - 1);
     constexpr static uint32_t NOC_ALIGNMENT_FACTOR = 4;
 
+    static constexpr int SUM_COUNT = 2;
+
     enum BufferIndex {
         ID_HH, ID_HL,
         ID_LH, ID_LL,

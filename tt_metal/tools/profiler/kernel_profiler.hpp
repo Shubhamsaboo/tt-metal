@@ -39,6 +39,9 @@ namespace kernel_profiler{
     extern uint32_t wIndex;
     extern uint32_t stackSize;
 
+    extern uint32_t sums[SUM_COUNT];
+    extern uint32_t sumIDs[SUM_COUNT];
+
 #if defined(COMPILE_FOR_BRISC)
     constexpr uint32_t profilerBuffer = PROFILER_L1_BUFFER_BR;
     constexpr uint32_t deviceBufferEndIndex = DEVICE_BUFFER_END_INDEX_BR;
@@ -70,6 +73,12 @@ namespace kernel_profiler{
     inline __attribute__((always_inline)) void init_profiler(uint16_t briscKernelID = 0, uint16_t ncriscKernelID = 0, uint16_t triscsKernelID = 0)
     {
         wIndex = CUSTOM_MARKERS;
+
+        for (int i = 0; i < SUM_COUNT; i ++)
+        {
+            sumIDs[i] = 0;
+            sums[i] = 0;
+        }
 
 #if defined(COMPILE_FOR_ERISC) || defined(COMPILE_FOR_BRISC)
         uint32_t runCounter = profiler_control_buffer[RUN_COUNTER];
@@ -163,6 +172,11 @@ namespace kernel_profiler{
         return ((timer_id & 0xFFFF) | ((1<<16) & 0x7FFFF));
     }
 
+    uint32_t get_sum_id (uint32_t sum_id)
+    {
+        return ((sum_id & 0xFFFF) | ((1<<17) & 0x7FFFF));
+    }
+
     inline __attribute__((always_inline)) void mark_time_at_index_inlined(uint32_t index, uint32_t timer_id)
     {
         volatile tt_l1_ptr uint32_t *buffer = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(kernel_profiler::profilerBuffer);
@@ -191,11 +205,26 @@ namespace kernel_profiler{
 
     inline __attribute__((always_inline)) void risc_finished_profiling()
     {
+        for (int i = 0; i < SUM_COUNT; i ++)
+        {
+            if (sums[i] > 0)
+            {
+                if (wIndex < PROFILER_L1_VECTOR_SIZE)
+                {
+                    volatile tt_l1_ptr uint32_t *buffer = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(kernel_profiler::profilerBuffer);
+                    buffer[wIndex] = 0x80000000 | ((get_sum_id(sumIDs[i]) & 0x7FFFF) << 12);
+                    buffer[wIndex + 1] = sums[i];
+                    wIndex += PROFILER_L1_MARKER_UINT32_SIZE;
+                }
+            }
+        }
+
         for (uint32_t i = 0; i < (wIndex % NOC_ALIGNMENT_FACTOR); i++)
         {
             mark_time(PADDING_MARKER);
         }
         profiler_control_buffer[kernel_profiler::deviceBufferEndIndex] = wIndex;
+
     }
 
     inline __attribute__((always_inline)) void finish_profiler()
@@ -351,6 +380,23 @@ namespace kernel_profiler{
             }
         }
     };
+
+    template<uint32_t timer_id, uint32_t index>
+    struct profileScopeAccumulate
+    {
+        uint64_t start_time = 0;
+        volatile tt_reg_ptr uint32_t *p_reg = reinterpret_cast<volatile tt_reg_ptr uint32_t *> (RISCV_DEBUG_REG_WALL_CLOCK_L);
+
+        inline __attribute__((always_inline)) profileScopeAccumulate ()
+        {
+            start_time = ((uint64_t)p_reg[1] << 32) | p_reg[0];
+        }
+        inline __attribute__((always_inline))  ~profileScopeAccumulate ()
+        {
+            sumIDs[index] = timer_id;
+            sums[index] += (((uint64_t)p_reg[1] << 32) | p_reg[0]) - start_time;
+        }
+    };
 }
 
 
@@ -360,6 +406,10 @@ namespace kernel_profiler{
 
 #define DeviceZoneScopedMainChildN( name ) DO_PRAGMA(message(PROFILER_MSG_NAME(name))); auto constexpr hash = kernel_profiler::Hash16_CT(PROFILER_MSG_NAME(name));kernel_profiler::profileScopeGuaranteed<hash, 1> zone = kernel_profiler::profileScopeGuaranteed<hash, 1>();
 
+#define DeviceZoneScopedSumN1( name ) DO_PRAGMA(message(PROFILER_MSG_NAME(name))); auto constexpr hash = kernel_profiler::Hash16_CT(PROFILER_MSG_NAME(name)); kernel_profiler::profileScopeAccumulate<hash, 0> zone = kernel_profiler::profileScopeAccumulate<hash, 0>();
+
+#define DeviceZoneScopedSumN2( name ) DO_PRAGMA(message(PROFILER_MSG_NAME(name))); auto constexpr hash = kernel_profiler::Hash16_CT(PROFILER_MSG_NAME(name)); kernel_profiler::profileScopeAccumulate<hash, 1> zone = kernel_profiler::profileScopeAccumulate<hash, 1>();
+
 #else
 
 #define DeviceZoneScopedMainN( name )
@@ -367,5 +417,9 @@ namespace kernel_profiler{
 #define DeviceZoneScopedMainChildN( name )
 
 #define DeviceZoneScopedN( name )
+
+#define DeviceZoneScopedSumN1( name )
+
+#define DeviceZoneScopedSumN2( name )
 
 #endif

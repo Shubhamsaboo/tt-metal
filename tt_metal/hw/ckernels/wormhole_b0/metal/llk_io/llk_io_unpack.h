@@ -10,6 +10,7 @@
 #include "stream_io_map.h"
 #include "hostdevcommon/common_runtime_address_map.h"
 #include "llk_unpack_common_api.h"
+#include "tools/profiler/kernel_profiler.hpp"
 
 
 using namespace ckernel;
@@ -38,6 +39,7 @@ inline void llk_setup_operands() {
 
 // Wait for N tiles available in the incoming stream
 inline void llk_wait_tiles(int operand, std::int32_t num_tiles) {
+    DeviceZoneScopedSumN1("CB-COMPUTE-WAIT-FRONT");
     std::uint32_t input = operand;
     volatile tt_l1_ptr std::uint32_t * tiles_received_ptr = get_cb_tiles_received_ptr(operand);
     std::uint16_t num_tiles_u = (std::uint16_t)num_tiles;

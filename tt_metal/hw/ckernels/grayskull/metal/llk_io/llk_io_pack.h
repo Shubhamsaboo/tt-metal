@@ -11,6 +11,7 @@
 #include "stream_io_map.h"
 #include "hostdevcommon/common_runtime_address_map.h"
 #include "llk_pack_common.h"
+#include "tools/profiler/kernel_profiler.hpp"
 
 #include "debug/dprint.h"
 
@@ -23,6 +24,7 @@ inline void llk_setup_outputs() {
 // Blocking call to wait for free space needed to pack N tiles
 template <bool skip_sync = false, bool wait_for_blocks = false, bool brisc_pack = false>
 inline void llk_wait_for_free_tiles(const std::int32_t operand, const std::int32_t num_tiles) {
+    DeviceZoneScopedSumN2("CB-COMPUTE-RESERVE-BACK");
     std::uint32_t output = operand;
 
     volatile tt_reg_ptr std::uint32_t* tiles_acked_ptr = get_cb_tiles_acked_ptr(operand);
