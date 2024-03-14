@@ -657,7 +657,7 @@ std::unordered_set<CoreCoord> Cluster::get_inactive_ethernet_cores(chip_id_t chi
     std::unordered_set<CoreCoord> inactive_ethernet_cores;
     for (const auto &[eth_core, chan] : get_soc_desc(chip_id).logical_eth_core_to_chan_map) {
         // TODO: UMD routing FW uses these cores for base routing
-        if (this->cluster_desc_->is_chip_mmio_capable(chip_id) and ((chan == 2) or (chan == 3))) {
+        if (this->cluster_desc_->is_chip_mmio_capable(chip_id) and (chan <= 3)) {
             continue;
             ;
         }
