@@ -284,8 +284,28 @@ CoreCoord get_core_for_dram_channel(int dram_channel_id, chip_id_t chip_id) {
 
 namespace internal_ {
 
+CoreCoord logical_core_from_ethernet_core(chip_id_t chip_id, const CoreCoord &physical_core) {
+    const metal_SocDescriptor &soc_desc = tt::Cluster::instance().get_soc_desc(chip_id);
+    return soc_desc.get_logical_ethernet_core_from_physical(physical_core);
+}
+
 static bool check_if_riscs_on_specified_core_done(chip_id_t chip_id, const CoreCoord &core, int run_state) {
-    if (is_ethernet_core(core, chip_id)) {
+
+    bool is_eth_core = is_ethernet_core(core, chip_id);
+    bool is_active_eth_core = false;
+    bool is_inactive_eth_core = false;
+
+    // Determine whether an ethernet core is active or idle. Their host handshake interfaces are different.
+    if (is_eth_core) {
+        auto active_eth_cores =  tt::Cluster::instance().get_active_ethernet_cores(chip_id);
+        auto inactive_eth_cores =  tt::Cluster::instance().get_inactive_ethernet_cores(chip_id);
+        is_active_eth_core = active_eth_cores.find(logical_core_from_ethernet_core(chip_id, core)) != active_eth_cores.end();
+        is_inactive_eth_core = inactive_eth_cores.find(logical_core_from_ethernet_core(chip_id, core)) != inactive_eth_cores.end();
+        //we should not be operating on any reserved cores here.
+        assert(is_active_eth_core or is_inactive_eth_core);
+    }
+
+    if (is_active_eth_core) {
         const auto &readback_vec =
             read_hex_vec_from_core(chip_id, core, eth_l1_mem::address_map::ERISC_APP_SYNC_INFO_BASE, sizeof(uint32_t));
         return (readback_vec[0] == 0);
@@ -308,32 +328,9 @@ static bool check_if_riscs_on_specified_core_done(chip_id_t chip_id, const CoreC
 
             return run == RUN_MSG_DONE;
         };
-
-        return get_mailbox_is_done(GET_MAILBOX_ADDRESS_HOST(launch.run));
+        uint32_t mailbox_addr = is_inactive_eth_core ? GET_IERISC_MAILBOX_ADDRESS_HOST(launch.run) : GET_MAILBOX_ADDRESS_HOST(launch.run);
+        return get_mailbox_is_done(mailbox_addr);
     }
-}
-
-static bool check_if_erisc_on_specified_core_done(chip_id_t chip_id, const CoreCoord &core, int run_state) {
-    std::function<bool(uint64_t)> get_mailbox_is_done = [&](uint64_t run_mailbox_address) {
-        constexpr int RUN_MAILBOX_BOGUS = 3;
-        std::vector<uint32_t> run_mailbox_read_val = {RUN_MAILBOX_BOGUS};
-        // read a single uint32_t even though launch.run is smaller than that
-        run_mailbox_read_val = read_hex_vec_from_core(chip_id, core, run_mailbox_address & ~0x3, sizeof(uint32_t));
-        uint8_t run = run_mailbox_read_val[0] >> (8 * (offsetof(launch_msg_t, run) & 3));
-        if (run != run_state && run != RUN_MSG_DONE) {
-            fprintf(
-                stderr,
-                "Read unexpected run_mailbox value: 0x%x (expected 0x%x or 0x%x)\n",
-                run,
-                run_state,
-                RUN_MSG_DONE);
-            TT_FATAL(run_mailbox_read_val[0] == run_state || run_mailbox_read_val[0] == RUN_MSG_DONE);
-        }
-
-        return run == RUN_MSG_DONE;
-    };
-
-    return get_mailbox_is_done(GET_IERISC_MAILBOX_ADDRESS_HOST(launch.run));
 }
 
 void wait_until_cores_done(chip_id_t device_id,
@@ -356,38 +353,6 @@ void wait_until_cores_done(chip_id_t device_id,
             const auto &phys_core = *it;
 
             bool is_done = llrt::internal_::check_if_riscs_on_specified_core_done(device_id, phys_core, run_state);
-
-            if (is_done) {
-                log_debug(tt::LogMetal, "Phys cores just done: {}", phys_core.str());
-                it = not_done_phys_cores.erase(it);
-            } else {
-                ++it;
-            }
-        }
-        loop_count++;
-    }
-}
-
-void wait_until_idle_eth_cores_done(chip_id_t device_id,
-                           int run_state,
-                           std::unordered_set<CoreCoord>& not_done_phys_cores) {
-
-    // poll the cores until the set of not done cores is empty
-    int loop_count = 1;
-    while (!not_done_phys_cores.empty()) {
-        // Print not-done cores
-        if (loop_count % 1000 == 0) {
-            string not_done_cores_str = "Not done phys cores: ";
-            for (const auto &core : not_done_phys_cores) {
-                not_done_cores_str += (core.str() + " ");
-            }
-            log_debug(tt::LogMetal, not_done_cores_str.c_str());
-        }
-
-        for (auto it = not_done_phys_cores.begin(); it != not_done_phys_cores.end(); ) {
-            const auto &phys_core = *it;
-
-            bool is_done = llrt::internal_::check_if_erisc_on_specified_core_done(device_id, phys_core, run_state);
 
             if (is_done) {
                 log_debug(tt::LogMetal, "Phys cores just done: {}", phys_core.str());

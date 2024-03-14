@@ -232,7 +232,6 @@ void Device::initialize_and_launch_firmware() {
     log_debug("Initializing firmware");
     CoreCoord grid_size = this->logical_grid_size();
     std::unordered_set<CoreCoord> not_done_cores;
-    std::unordered_set<CoreCoord> not_done_idle_eth_cores;
 
 
     for (uint32_t y = 0; y < grid_size.y; y++) {
@@ -253,13 +252,9 @@ void Device::initialize_and_launch_firmware() {
     }
 
     for (const auto &eth_core : this->get_inactive_ethernet_cores()) {
-        if (this->is_mmio_capable() && eth_core == CoreCoord(0, 15)) {
-            //Channel 15 on MMIO chips is used by debug tools.
-            continue;
-        }
         CoreCoord phys_eth_core = this->ethernet_core_from_logical_core(eth_core);
         this->initialize_firmware(phys_eth_core, &launch_msg);
-        not_done_idle_eth_cores.insert(phys_eth_core);
+        not_done_cores.insert(phys_eth_core);
     }
 
     // Barrier between L1 writes above and deassert below
@@ -269,14 +264,10 @@ void Device::initialize_and_launch_firmware() {
     for(const auto& worker_core : not_done_cores)
         tt::Cluster::instance().deassert_risc_reset_at_core(tt_cxy_pair(this->id(), worker_core));
 
-    for(const auto& eth_core : not_done_idle_eth_cores)
-        tt::Cluster::instance().deassert_risc_reset_at_core(tt_cxy_pair(this->id(), eth_core));
-
     // Wait until fw init is done, ensures the next launch msg doesn't get
     // written while fw is still in init
     log_debug("Waiting for firmware init complete");
     llrt::internal_::wait_until_cores_done(this->id(), RUN_MSG_INIT, not_done_cores);
-    llrt::internal_::wait_until_idle_eth_cores_done(this->id(), RUN_MSG_INIT, not_done_idle_eth_cores);
     log_debug("Firmware init complete");
 }
 
