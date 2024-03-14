@@ -52,6 +52,7 @@ void __attribute__((section("erisc_l1_code"))) Application(void) {
 
     risc_init();
     noc_init();
+    wzerorange(__ldm_bss_start, __ldm_bss_end);
 
     for (uint32_t n = 0; n < NUM_NOCS; n++) {
         noc_local_state_init(n);
