@@ -82,6 +82,12 @@ env pytest models/experimental/mistral/tests/test_mistral_feed_forward.py
 env pytest models/experimental/mistral/tests/test_mistral_rms_norm.py
 env pytest models/experimental/mistral/tests/test_mistral_transformer_block.py
 
+env pytest models/experimental/mamba/tests/test_demo.py
+env pytest models/experimental/mamba/tests/test_mamba_ssm.py
+env pytest models/experimental/mamba/tests/test_mamba_block.py
+env pytest models/experimental/mamba/tests/test_residual_block.py
+env pytest models/experimental/mamba/tests/test_reference_model.py
+
 # GRAYSKULL ONLY
 
 if [[ $ARCH_NAME == "grayskull" ]]; then
