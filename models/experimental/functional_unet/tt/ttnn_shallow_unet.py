@@ -16,7 +16,7 @@ from loguru import logger
 def unet_reshard(
     ttnn_tensor,
     sharded_memory_config,
-    use_reshard=False,
+    use_reshard=True,
     interleaved_memory_config=ttnn.L1_MEMORY_CONFIG,
     tilize=False,
     dtype=None,
@@ -59,7 +59,7 @@ def unet_reshard(
         return ttl_tensor
 
 
-def unet_concat(ttnn_tensors, dim=-1, use_reshard=False):
+def unet_concat(ttnn_tensors, dim=-1, use_reshard=True):
     assert len(ttnn_tensors) > 0
     assert dim < 0
     rank = len(ttnn_tensors[0].shape)
