@@ -412,11 +412,16 @@ void Device::compile_command_queue_programs() {
     uint32_t producer_data_buffer_size_tensix = get_cq_data_buffer_size(false, false);
     uint32_t consumer_data_buffer_size_tensix = get_cq_data_buffer_size(false, false);
 
-    uint32_t issue_path_cmd_start_eth = get_eth_command_start_l1_address(SyncCBConfigRegion::ROUTER_ISSUE);
-    uint32_t completion_path_cmd_start_eth = get_eth_command_start_l1_address(SyncCBConfigRegion::ROUTER_COMPLETION);
+    // Idle erisc dispatch
+    uint32_t cmd_start_eth_dispatch = get_command_start_l1_address(true);
+    uint32_t consumer_data_buffer_size_eth_dispatch = get_cq_data_buffer_size(true, true);
 
     uint32_t producer_data_buffer_size_eth = get_cq_data_buffer_size(true, false);
     uint32_t consumer_data_buffer_size_eth = get_cq_data_buffer_size(true, false);
+
+    // Eth tunneller kernel
+    uint32_t issue_path_cmd_start_eth = get_eth_command_start_l1_address(SyncCBConfigRegion::ROUTER_ISSUE);
+    uint32_t completion_path_cmd_start_eth = get_eth_command_start_l1_address(SyncCBConfigRegion::ROUTER_COMPLETION);
 
     if (this->is_mmio_capable()) {
         for (const chip_id_t &device_id : tt::Cluster::instance().get_devices_controlled_by_mmio_device(this->id())) {
@@ -506,9 +511,6 @@ void Device::compile_command_queue_programs() {
                 uint32_t completion_queue_start_addr = CQ_START + issue_queue_size + get_absolute_cq_offset(channel, cq_id, cq_size);
                 uint32_t completion_queue_size = (cq_size - CQ_START) - issue_queue_size;
                 uint32_t host_finish_addr = HOST_CQ_FINISH_PTR + get_absolute_cq_offset(channel, cq_id, cq_size);
-
-                uint32_t cmd_start_eth_dispatch = get_command_start_l1_address(true);
-                uint32_t consumer_data_buffer_size_eth_dispatch = get_cq_data_buffer_size(true, true);
 
                 uint32_t consumer_cmd_base_addr =  (device_id != this->id()) ? issue_path_cmd_start_eth : eth_core ? cmd_start_eth_dispatch : cmd_start_tensix; // device is MMIO capable but current device_id being set up is remote
                 uint32_t consumer_data_buff_size = (device_id != this->id()) ? consumer_data_buffer_size_eth : eth_core ? consumer_data_buffer_size_eth_dispatch : consumer_data_buffer_size_tensix; // device is MMIO capable but current device_id being set up is remote
@@ -710,6 +712,11 @@ void Device::compile_command_queue_programs() {
                     .compile_args = eth_tunneller_compile_args,
                     .defines = eth_tunneller_defines});
 
+        bool eth_core = dispatch_core_type == CoreType::ETH;
+        uint32_t cmd_start_consumer = eth_core ? cmd_start_eth_dispatch : cmd_start_tensix;
+        uint32_t consumer_data_buffer_size = eth_core ? consumer_data_buffer_size_eth_dispatch : consumer_data_buffer_size_tensix;
+        uint32_t data_section_addr_producer = eth_core ? get_data_section_l1_address(true, true) : data_section_addr_tensix;
+        uint32_t producer_data_buffer_size = eth_core ? get_cq_data_buffer_size(true, true) : producer_data_buffer_size_tensix;
         std::vector<uint32_t> remote_pull_and_push_compile_args = {
             0, // host_issue_queue_read_ptr_addr,
             0, // issue_queue_start_addr,
@@ -718,11 +725,11 @@ void Device::compile_command_queue_programs() {
             0, // completion_queue_start_addr,
             0, // completion_queue_size,
             0, // host_finish_addr
-            cmd_start_tensix,
-            data_section_addr_tensix,
-            producer_data_buffer_size_tensix,
-            cmd_start_tensix,
-            consumer_data_buffer_size_tensix,
+            cmd_start_consumer,
+            data_section_addr_producer,
+            producer_data_buffer_size,
+            cmd_start_consumer,
+            consumer_data_buffer_size,
             (uint32_t)tt::PullAndPushConfig::REMOTE_PULL_AND_PUSH
         };
 
@@ -769,7 +776,7 @@ void Device::compile_command_queue_programs() {
             num_tensix_command_slots,
             dispatch_core_type);  // semaphore between push&pull kernel and dispatch kernel
 
-        std::vector<uint32_t> dispatch_compile_args = {cmd_start_tensix, consumer_data_buffer_size_tensix};
+        std::vector<uint32_t> dispatch_compile_args = {cmd_start_consumer, consumer_data_buffer_size};
 
         std::map<string, string> remote_dispatch_defines = {
             {"DISPATCH_KERNEL", "1"},
