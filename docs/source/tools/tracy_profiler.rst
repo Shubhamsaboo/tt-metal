@@ -20,7 +20,7 @@ Mac users can use brew to install tracy. On your terminal run:
 ..  code-block:: sh
 
     brew uninstall tracy #Remove any old version of tracy
-    wget -P ~/ https://raw.githubusercontent.com/tenstorrent-metal/tracy/master/tracy.rb
+    wget -P ~/ --no-check-certificate --no-cache --no-cookies https://raw.githubusercontent.com/tenstorrent-metal/tracy/master/tracy.rb
     brew install ~/tracy.rb
     rm ~/tracy.rb
 
@@ -43,8 +43,8 @@ Set client address to the IP address of the remote machine, listen over port 808
 Once the host machine starts running a tracy enabled application, GUI will automatically start collecting profiling data and will draw it in real time.
 
 
-Profiling
----------
+Profiling Host
+--------------
 
 C++
 ~~~

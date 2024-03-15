@@ -43,10 +43,7 @@ The headers of the columns with their descriptions is below:
 
 - **GLOBAL CALL COUNT**: The index of the op in the execution pipeline
 
-- **ATTRIBUTES**: Any additional attribute or meta-data that can be manually added during the execution of the op
-
-    - ``op_profiler::append_meta_data`` can be used on the C++ side to add to this field
-    - ``ttl.profiler.append_meta_data`` can be used on the Python side to add to this field
+- **ATTRIBUTES**: Operation attributes
 
 - **MATH FIDELITY**: Math fidelity of the fields
 
@@ -97,10 +94,11 @@ The headers of the columns with their descriptions is below:
 
 - **Input & Output Tensor Headers**: Header template is {Input/Output}_{IO Number}_{Field}. e.g. INPUT_0_MEMORY
 
-    - *W*: Tensor batch count
-    - *Z*: Tensor channel count
-    - *Y*: Tensor Height
-    - *X*: Tensor Width
+    - *SHAPE*
+        - W: Tensor batch count
+        - Z: Tensor channel count
+        - Y: Tensor Height
+        - X: Tensor Width
     - *LAYOUT*:
         - ROW_MAJOR
         - TILE
@@ -115,17 +113,6 @@ The headers of the columns with their descriptions is below:
         - dec_0_l1
         - host
 
-- **CALL DEPTH**: Level of the OP in the call stack. If OP call other OPs the child OP will have a CALL DEPTH one more than the CALL DEPTH of the caller
-
-- **TT_METAL API calls**: Statistics on tt_metal calls, particularly how many times they were called during the OP and what was their average duration in nanoseconds
-
-    - CompileProgram
-    - ConfigureDeviceWithProgram
-    - LaunchProgram
-    - ReadFromDevice
-    - WriteToDevice
-    - DumpDeviceProfileResults
-
 
 profile_this description
 ------------------------
@@ -138,13 +125,7 @@ CLI options of the  ``profile_this.py`` script are:
 
 - ``-n``, ``--name-append``: Name to be appended to ``csv`` and ``tgz`` filenames and also be used as the folder name under the given or default output folder
 
-- ``-d``, ``--device-only``: Only profile device side, note in this mode host side readings will still be reported but should be ignored
-
-- ``-m``, ``--host-only``: Only profile host side
-
 This scripts performs the following items:
 
-1. Checks if the project is correctly built with ``PROFILER="enabled"``
-2. Executes the provided under test command to generate both host and device side profiling logs
-3. Post-processes all the collected logs and aggregate them into the perf csv with a timestamped name.
-4. Compress all the raw host and device side logs into a tarball for future reference.
+1. Executes the provided under test command to generate both host and device side profiling logs
+2. Post-processes all the collected logs and aggregate them into the perf csv with a timestamped name.
