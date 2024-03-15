@@ -26,8 +26,7 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core_height_sharded(const Te
     auto all_cores = shard_spec.grid;
 
     uint32_t ncores = shard_spec.num_cores();
-    uint32_t ncores_x = device->compute_with_storage_grid_size().x;
-    uint32_t ncores_nhw = ncores;
+
 
     auto out_shard_spec = output.shard_spec().value();
     TT_FATAL(out_shard_spec.num_cores() == ncores, "Output tensor should have same number of cores {} as input tensor {}", out_shard_spec.num_cores(), ncores);
@@ -42,22 +41,21 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core_height_sharded(const Te
     uint32_t output_tile_size = tt::tt_metal::detail::TileSize(out_df);
 
     uint32_t num_tile_per_core = shard_spec.numel() * datum_size(act_df) /input_tile_size;
-    std::cout << shard_spec.numel() << "  " << input_tile_size << "  " << num_tile_per_core << std::endl;
+    TT_ASSERT((shard_spec.numel() * datum_size(act_df)) % input_tile_size == 0, "Shard size should be multiple of the 1024");
 
+    uint32_t ncores_x, ncores_nhw;
     if (input.memory_config().memory_layout == TensorMemoryLayout::HEIGHT_SHARDED) {
-        std::cout << "Height Sharded testing " << ncores_nhw << "  " << ncores_x << std::endl;
+        ncores_x = device->compute_with_storage_grid_size().x;
+        ncores_nhw = ncores;
         TT_FATAL(in_nsticks_per_core % in_w == 0, "Restriction: Input sticks per core {} should be divisible by input width {}. TODO to remove this restriction", in_nsticks_per_core, in_w);
     } else if (input.memory_config().memory_layout == TensorMemoryLayout::BLOCK_SHARDED) {
-        std::cout << "block sharded testing " << ncores_nhw << "  " << ncores_x << std::endl;
         ncores_x = all_cores.ranges().begin()->end.x + 1;
         ncores_nhw = all_cores.ranges().begin()->end.y + 1;
-        //input_tile_size = input_tile_size / ncores_x;
-        //output_tile_size = output_tile_size / ncores_x;
     } else {
         TT_FATAL(false, "Unsupported sharding layout");
     }
 
-    uint32_t in_cb_id = CB::c_in0; //match this with kernel
+    uint32_t in_cb_id = CB::c_in0;
     uint32_t buffering_factor = 1;  // data is already fully buffered in the CBs since its sharded
     uint32_t aligned_input_tile_nbytes = round_up_to_mul32(input_tile_size); //will have issue if the page is not multiple of 32
     std::cout << "aligned input and input tile size --> " << input_tile_size << "  " << aligned_input_tile_nbytes << std::endl;
@@ -71,10 +69,7 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core_height_sharded(const Te
     auto cb_src0 = tt_metal::CreateCircularBuffer(program, all_cores, cb_src0_config);
 
     // output sharded CB with upsampled data
-    uint32_t out_cb_id = CB::c_out0;   //need to change this guy
-    /*uint32_t aligned_output_stick_nbytes = round_up_to_mul32(input_tile_size);
-    uint32_t out_cb_pagesize = aligned_output_stick_nbytes;
-    uint32_t out_cb_npages = in2 * buffering_factor;*/
+    uint32_t out_cb_id = CB::c_out0;
     CircularBufferConfig out_cb_config = CircularBufferConfig(
                                             in_cb_pagesize * in_cb_npages,
                                             {{out_cb_id, out_df}})
@@ -132,9 +127,7 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core_height_sharded(const Te
     );
 
     uint32_t start_input_stick_id = 0;
-    std::cout << "element 8 " << std::endl;
     if(input.memory_config().memory_layout == TensorMemoryLayout::HEIGHT_SHARDED){
-        std::cout << "Height Sharded testing " << ncores_nhw << "  " << ncores_x << std::endl;
         for (int32_t core = 0; core < ncores_nhw; ++core) {
             CoreCoord core_coord(core % ncores_x, core / ncores_x); // logical
             tt_metal::SetRuntimeArgs(
@@ -155,7 +148,6 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core_height_sharded(const Te
             );
         }
     }else if(input.memory_config().memory_layout == TensorMemoryLayout::BLOCK_SHARDED){
-        std::cout << "block sharded testing " << ncores_nhw << "  " << ncores_x << std::endl;
         ncores_nhw = 1;
         ncores_x = 1;
         for (int32_t core = 0; core < ncores_nhw; ++core) {
@@ -199,7 +191,6 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core_height_sharded(const Te
         auto src_buffer = input_buffers.at(0);
         auto dst_buffer = output_buffers.at(0);
         for (uint32_t core = 0; core < ncores_nhw; core++){
-            std::cout << "tesing overriding the kernels call" << std::endl;
             CoreCoord core_coord(core % ncores_x, core / ncores_x); //
             {
 
@@ -228,8 +219,6 @@ operation::ProgramWithCallbacks eltwise_unary_multi_core(const Tensor &a, Tensor
     uint32_t num_cores_x = compute_with_storage_grid_size.x;
     uint32_t num_cores_y = compute_with_storage_grid_size.y;
     auto [num_cores, all_cores, core_group_1, core_group_2, num_tiles_per_core_group_1, num_tiles_per_core_group_2] = split_work_to_cores(compute_with_storage_grid_size, num_tiles);
-
-    std::cout << "num_cores: " << num_cores << " num_tiles_per_core_group_1: " << num_tiles_per_core_group_1 << " num_tiles_per_core_group_2: " << num_tiles_per_core_group_2 << std::endl;
 
     uint32_t src0_cb_index = 0;
     uint32_t num_input_tiles = 2;

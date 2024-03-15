@@ -281,12 +281,9 @@ std::vector<Shape> EltwiseUnary::compute_output_shapes(const std::vector<Tensor>
 std::vector<Tensor> EltwiseUnary::create_output_tensors(const std::vector<Tensor> &input_tensors) const {
     const auto& input_tensor = input_tensors.at(0);
     auto input_shard_spec = input_tensor.memory_config().shard_spec.value();
-     //std::cout <<"output_mem_config " << this -> output_mem_config << std::endl;
      if(this->output_mem_config.is_sharded()){
         if(input_tensor.memory_config().memory_layout == TensorMemoryLayout::HEIGHT_SHARDED){
             auto ncores = input_shard_spec.num_cores();
-            std::cout << "output memory is sharded " << std::endl;
-            std::cout << "ncores " << ncores << std::endl;
             Shape output_shape = compute_output_shapes(input_tensors).at(0);
             array<uint32_t, 2> output_shard_shape = {div_up(output_shape[0] * output_shape[1] * output_shape[2], ncores), output_shape[-1]};
             std::cout << __FILE__ << " " << __LINE__ << " " << output_shard_shape << std::endl;
@@ -309,7 +306,7 @@ std::vector<Tensor> EltwiseUnary::create_output_tensors(const std::vector<Tensor
             mem_config.shard_spec = output_shard_spec;
             return {create_sharded_device_tensor(output_shape, input_tensor.get_dtype(), input_tensor.get_layout(), input_tensor.device(), mem_config)};
         }else{
-            ////need to fix here.
+            return operation::generic_create_output_tensors(*this, input_tensors, input_tensor.get_dtype(), Layout::TILE, this->output_mem_config);
         }
     }
     return operation::generic_create_output_tensors(*this, input_tensors, input_tensor.get_dtype(), Layout::TILE, this->output_mem_config);

@@ -8,9 +8,7 @@
 #include "debug/dprint.h"
 
 void kernel_main() {
-    //uint32_t src_addr  = get_arg_val<uint32_t>(0);
     uint32_t num_tiles_per_core = get_arg_val<uint32_t>(0);
-    //uint32_t tile_size = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_id_in0 = get_compile_time_arg_val(0);
 
     constexpr uint32_t onetile = 1;
