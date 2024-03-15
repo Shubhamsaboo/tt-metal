@@ -20,23 +20,6 @@ namespace kernel_profiler{
         GUARANTEED_MARKER_4_H, GUARANTEED_MARKER_4_L,
         CUSTOM_MARKERS};
 
-    enum GuaranteedMarkers {
-        FW_START = 1,
-        KERNEL_START,
-        KERNEL_END,
-        FW_END,
-        CQ_CONSUMER_START,
-        CQ_CONSUMER_END,
-        CQ_PRODUCER_START,
-        CQ_PRODUCER_END,
-        ETH_FD_SRC_START,
-        ETH_FD_SRC_END,
-        ETH_FD_DST_START,
-        ETH_FD_DST_END,
-        ETH_CTX_SW_START,
-        ETH_CTX_SW_END,
-        };
-
     enum ControlBuffer
     {
         HOST_BUFFER_END_INDEX_BR,
