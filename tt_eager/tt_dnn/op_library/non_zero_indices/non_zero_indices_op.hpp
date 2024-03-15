@@ -27,7 +27,7 @@ struct NonZeroIndices {
     tt::stl::reflection::Attributes attributes() const;
 };
 
-operation::ProgramWithCallbacks non_zero_indices_multi_core(const Tensor &input, const Tensor &out_num_indices, const Tensor &out_indices);
+operation::ProgramWithCallbacks non_zero_indices_single_core(const Tensor &input, const Tensor &out_num_indices, const Tensor &out_indices);
 
 
 std::vector<Tensor> non_zero_indices(const Tensor& input, const MemoryConfig& output_mem_config);

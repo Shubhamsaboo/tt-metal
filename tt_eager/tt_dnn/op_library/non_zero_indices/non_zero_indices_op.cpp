@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt_dnn/op_library/indexed_fill/indexed_fill_op.hpp"
+#include "tt_dnn/op_library/non_zero_indices/non_zero_indices_op.hpp"
 
 #include "tt_metal/host_api.hpp"
 
@@ -42,11 +42,11 @@ operation::ProgramWithCallbacks NonZeroIndices::create_program(const std::vector
     const auto& out_num_indices = output_tensors.at(0);
     const auto& out_indices = output_tensors.at(1);
 
-    return non_zero_indices_multi_core(input_tensor, out_num_indices, out_indices);
+    return non_zero_indices_single_core(input_tensor, out_num_indices, out_indices);
 }
 
 
-tt::stl::reflection::Attributes NonZeroIndicesl::attributes() const {
+tt::stl::reflection::Attributes NonZeroIndices::attributes() const {
     return {
         {"output_mem_config", this->output_mem_config},
     };
