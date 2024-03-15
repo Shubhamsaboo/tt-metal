@@ -440,13 +440,21 @@ void JitBuildState::compile_one(const string& log_file,
 void JitBuildState::compile(const string& log_file, const string& out_dir, const JitBuildSettings* settings) const {
     std::vector<std::shared_future<void>> events;
     for (size_t i = 0; i < this->srcs_.size(); ++i) {
-        events.emplace_back( detail::async ([this, &log_file, &out_dir, settings, i] {
+#if 0
+        events.emplace_back( detail::async ([this, &log_file, &out_dir, settings, i]
+#endif
+              {
             this->compile_one(log_file, out_dir, settings, this->srcs_[i], this->objs_[i]);
-        } ) );
+        }
+#if 0
+        ) );
+#endif
     }
 
+#if 0
     for (auto & f : events)
         f.get();
+#endif
     if (tt::llrt::OptionsG.get_watcher_enabled()) {
         dump_kernel_defines_and_args(env_.get_out_kernel_root_path());
     }
@@ -597,6 +605,7 @@ void jit_build_set(const JitBuildStateSet& build_set, const JitBuildSettings* se
     for (size_t i = 0; i < build_set.size(); ++i) {
         // Capture the necessary objects by reference
         auto& build = build_set[i];
+#if 0
         events.emplace_back( detail::async ([build, settings, &kernel_in_path] {
             if (settings != nullptr) {
                 build->pre_compile(kernel_in_path, settings->get_full_kernel_name());
@@ -606,6 +615,13 @@ void jit_build_set(const JitBuildStateSet& build_set, const JitBuildSettings* se
     }
     for (auto & f : events)
         f.get();
+#else
+        if (settings != nullptr) {
+            build->pre_compile(kernel_in_path, settings->get_full_kernel_name());
+        }
+        build->build(settings);
+    }
+#endif
 }
 
 void jit_build_subset(const JitBuildStateSubset& build_subset, const JitBuildSettings* settings, const string& kernel_in_path) {
@@ -614,15 +630,15 @@ void jit_build_subset(const JitBuildStateSubset& build_subset, const JitBuildSet
     for (size_t i = 0; i < build_subset.size; ++i) {
         // Capture the necessary objects by reference
         auto& build = build_subset.build_ptr[i];
-        events.emplace_back( detail::async ([build, settings, &kernel_in_path] {
+        //events.emplace_back( detail::async ([build, settings, &kernel_in_path] {
             if (settings != nullptr) {
                 build->pre_compile(kernel_in_path, settings->get_full_kernel_name());
             }
             build->build(settings);
-        } ) );
+        //} ) );
     }
-    for (auto & f : events)
-        f.get();
+    //for (auto & f : events)
+    //    f.get();
 }
 
 } // namespace tt_metal

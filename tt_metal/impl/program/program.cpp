@@ -1029,7 +1029,10 @@ void Program::compile( Device * device )
     // compile all kernels in parallel
     for (auto &[core_type, kernels] : kernels_) {
        for (auto &[id, kernel]: kernels) {
-            events.emplace_back ( detail::async ( [kernel, device, this] {
+#if 0
+            events.emplace_back ( detail::async ( [kernel, device, this]
+#endif
+                  {
                 ZoneScoped;
 
                 JitBuildOptions build_options(device->build_env());
@@ -1054,21 +1057,34 @@ void Program::compile( Device * device )
                 }
 
                 kernel->set_binary_path(build_options.path);
-        } ) );
+        }
+#if 0
+            ) );
+#endif
        }
     }
 
+#if 0
     for (auto & f : events)
         f.get();
+#endif
 
     for (auto &[core_type, kernels] : kernels_) {
         for (auto &[id, kernel] : kernels) {
-            events.emplace_back ( detail::async ( [kernel, device] { kernel->read_binaries(device); }));
+#if 0
+            events.emplace_back ( detail::async ( [kernel, device] {
+#endif
+                  kernel->read_binaries(device);
+#if 0
+                  }));
+#endif
         }
     }
 
+#if 0
     for (auto & f : events)
         f.get();
+#endif
 
     this->construct_core_range_set_for_worker_cores();
 

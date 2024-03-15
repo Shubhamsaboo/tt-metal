@@ -22,7 +22,7 @@ import tt_lib.profiler as profiler
 
 import ttnn
 
-num_groups = 4
+num_groups = 2
 
 
 def update_ttnn_module_args(ttnn_module_args):
@@ -60,10 +60,12 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c1["deallocate_activation"] = True
             ttnn_module_args.c1_2["deallocate_activation"] = True
             ttnn_module_args.c1["conv_blocking_and_parallelization_config_override"] = (
-                {"act_block_h": 5 * 32} if device.arch() == ttl.device.Arch.WORMHOLE_B0 else {"act_block_h": 64}
+                None
+                # {"act_block_h": 5 * 32} if device.arch() == ttl.device.Arch.WORMHOLE_B0 else {"act_block_h": 64}
             )
             ttnn_module_args.c1_2["conv_blocking_and_parallelization_config_override"] = (
-                {"act_block_h": 5 * 32} if device.arch() == ttl.device.Arch.WORMHOLE_B0 else {"act_block_h": 64}
+                None
+                # {"act_block_h": 5 * 32} if device.arch() == ttl.device.Arch.WORMHOLE_B0 else {"act_block_h": 64}
             )
 
             ttnn_module_args.c2["math_fidelity"] = ttnn.MathFidelity.LoFi
@@ -121,7 +123,7 @@ def create_custom_preprocessor(device):
             ttnn_module_args.bnc["deallocate_activation"] = True
             ttnn_module_args.bnc_2["deallocate_activation"] = True
             ttnn_module_args.bnc["conv_blocking_and_parallelization_config_override"] = {
-                "act_reshard_num_cores_nhw": 55
+                # "act_reshard_num_cores_nhw": 55
             }
             ttnn_module_args.bnc_2["conv_blocking_and_parallelization_config_override"] = None
 
@@ -185,8 +187,8 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c7_2["deallocate_activation"] = True
             ttnn_module_args.c7_3["deallocate_activation"] = True
             ttnn_module_args.c7["conv_blocking_and_parallelization_config_override"] = {
-                "act_block_h": 32,
-                "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 66,
+                # "act_block_h": 32,
+                # "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 66,
             }
             ttnn_module_args.c7["padded_input_channels"] = 48 * num_groups
             ttnn_module_args.c7_2["conv_blocking_and_parallelization_config_override"] = None
@@ -208,11 +210,11 @@ def create_custom_preprocessor(device):
             ttnn_module_args.c8_2["deallocate_activation"] = True
             ttnn_module_args.c8_3["deallocate_activation"] = True
             ttnn_module_args.c8["conv_blocking_and_parallelization_config_override"] = {
-                "act_block_h": 32,
-                "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 88,
+                # "act_block_h": 32,
+                # "act_reshard_num_cores_nhw": 48 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 88,
             }
-            ttnn_module_args.c8_2["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
-            ttnn_module_args.c8_3["conv_blocking_and_parallelization_config_override"] = {"act_block_h": 32}
+            ttnn_module_args.c8_2["conv_blocking_and_parallelization_config_override"] = None  # {"act_block_h": 32}
+            ttnn_module_args.c8_3["conv_blocking_and_parallelization_config_override"] = None  # {"act_block_h": 32}
 
             ttnn_module_args.output_layer["math_fidelity"] = ttnn.MathFidelity.LoFi
             ttnn_module_args.output_layer["dtype"] = ttnn.bfloat8_b
@@ -539,7 +541,9 @@ if __name__ == "__main__":
 
     torch_model.load_state_dict(new_state_dict)
 
-    torch_input_tensor = torch.randn(2, 4 * num_groups, 1056, 160)  # Batch size of 2, 3 channels (RGB), 1056x160 input
+    # torch_input_tensor = torch.randn(1, 4 * num_groups, 1056, 160)  # Batch size of 2, 3 channels (RGB), 1056x160 input
+    torch_input_tensor = torch.randn(1, 4 * num_groups, 1056, 128)  # Batch size of 2, 3 channels (RGB), 1056x160 input
+    # torch_input_tensor = torch.randn(1, 4 * num_groups, 1536, 128)  # Batch size of 2, 3 channels (RGB), 1056x160 input
     torch_output_tensor = torch_model(torch_input_tensor)
 
     reader_patterns_cache = {}
@@ -564,8 +568,11 @@ if __name__ == "__main__":
     )
     # Pad to 16 if grayskull run and 32 for wormhole
     pad = 32 if device.arch() == ttl.device.Arch.WORMHOLE_B0 else 16
-    if input_tensor.shape[-1] < pad:
-        input_tensor = torch.nn.functional.pad(input_tensor, (0, pad - input_tensor.shape[-1]))
+    hpad = 0  # 96*32*64
+    if input_tensor.shape[-1] < pad or input_tensor.shape[-2] < hpad:
+        input_tensor = torch.nn.functional.pad(
+            input_tensor, (0, max(0, pad - input_tensor.shape[-1]), 0, max(0, hpad - input_tensor.shape[-2]))
+        )
     input_tensor = ttnn.from_torch(input_tensor, dtype=ttnn.bfloat16)
 
     warmup = 1
@@ -574,7 +581,7 @@ if __name__ == "__main__":
         if i == warmup:
             start = time.perf_counter()
         profiler.tracy_frame()
-        output_tensor = ttnn_model(device, input_tensor)
+        output_tensor = ttnn_model(device, input_tensor, input_shape)
     if start is not None:
         stop = time.perf_counter()
         total_time = stop - start
