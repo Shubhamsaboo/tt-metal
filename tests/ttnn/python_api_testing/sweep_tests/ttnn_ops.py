@@ -2441,8 +2441,9 @@ def preprocessing_model_bert_4(
     output_mem_config,
     **kwargs,
 ):
-    torch.manual_seed(234)
+    torch.manual_seed(0)
     model_name = "phiyodr/bert-large-finetuned-squad2"
+
     # set parameters
     batch_size = x.shape[0]
     sequence_size = x.shape[1]
@@ -2459,7 +2460,8 @@ def preprocessing_model_bert_4(
 
     # set inputs
     torch_input_ids = torch.randint(0, config.vocab_size, (batch_size, sequence_size)).to(torch.int32)
-    torch_token_type_ids = torch.ones((batch_size, sequence_size), dtype=torch.int32)
+    torch_token_type_ids = torch.zeros((batch_size, sequence_size), dtype=torch.int32)
+    torch_position_ids = torch.zeros((batch_size, sequence_size), dtype=torch.int32)
     torch_attention_mask = None
 
     parameters = preprocess_model_parameters(
@@ -2470,6 +2472,7 @@ def preprocessing_model_bert_4(
     ttnn_bert_inputs = ttnn_bert.preprocess_inputs(
         torch_input_ids,
         torch_token_type_ids,
+        torch_position_ids,
         torch_attention_mask,
         device=device,
     )
@@ -2478,6 +2481,7 @@ def preprocessing_model_bert_4(
         *ttnn_bert_inputs,
         parameters=parameters,
     )
+
     output = ttnn.to_torch(output)
     start_logits = output[..., 0]
     end_logits = output[..., 1]
