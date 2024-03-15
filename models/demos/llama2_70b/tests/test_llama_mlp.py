@@ -101,6 +101,7 @@ def run_test_LlamaMLP_inference(
             tt_mlp_input = tt_LlamaMLP_model.prepare_inputs(tt_inp)
 
         else:
+            assert seq_len == 1, "Prefill is only supported for optimized"
             # TT hardware execution -------------------------------------------------------------
             tt_LlamaMLP_model = TtLlamaMLP_optimized(
                 devices,
@@ -168,6 +169,8 @@ def run_test_LlamaMLP_inference(
         (32, 1, 0.9999, False, 4, True),
         (32, 1, 0.9999, False, 8, True),
         (32, 1, 0.9999, True, 32, True),
+        # Prefill Test cases
+        (32, 128, 0.9999, True, 4, True),
     ),
 )
 @pytest.mark.parametrize("model_config_str", ("BFLOAT16-DRAM",))
