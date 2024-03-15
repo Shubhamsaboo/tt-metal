@@ -185,11 +185,13 @@ namespace kernel_profiler{
         buffer[index+1] = p_reg[0];
     }
 
-    PROFILER_INLINE void mark_time(uint32_t timer_id)
+    PROFILER_INLINE void mark_padding()
     {
         if (wIndex < PROFILER_L1_VECTOR_SIZE)
         {
-            mark_time_at_index_inlined(wIndex, timer_id);
+            volatile tt_l1_ptr uint32_t *buffer = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(kernel_profiler::profilerBuffer);
+            buffer[wIndex] = 0x80000000;
+            buffer[wIndex+1] = 0;
             wIndex += PROFILER_L1_MARKER_UINT32_SIZE;
         }
     }
@@ -221,7 +223,7 @@ namespace kernel_profiler{
 
         for (uint32_t i = 0; i < (wIndex % NOC_ALIGNMENT_FACTOR); i++)
         {
-            mark_time(PADDING_MARKER);
+            mark_padding();
         }
         profiler_control_buffer[kernel_profiler::deviceBufferEndIndex] = wIndex;
 
