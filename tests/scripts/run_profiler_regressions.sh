@@ -19,13 +19,23 @@ run_profiling_test(){
 
     remove_default_log_locations
 
-    $PROFILER_SCRIPTS_ROOT/profile_this.py -c "pytest -svvv $TT_METAL_HOME/tests/tt_eager/python_api_testing/sweep_tests/pytests/tt_dnn/test_composite.py::test_run_eltwise_composite_test[lerp_binary-input_shapes0]"
+    $PROFILER_SCRIPTS_ROOT/profile_this.py -c "pytest tests/tt_eager/python_api_testing/sweep_tests/pytests/tt_dnn/test_matmul.py::test_run_matmul_test[BFLOAT16-input_shapes0]"
 
     runDate=$(ls $PROFILER_OUTPUT_DIR/)
 
-    ls $PROFILER_OUTPUT_DIR/$runDate/ops_perf_results_$runDate.csv
+    res=$(cat $PROFILER_OUTPUT_DIR/$runDate/ops_perf_results_$runDate.csv |awk -F, 'NR > 1 { print $22 }')
 
     remove_default_log_locations
+
+    UPPER_BOUND=5000
+    LOWER_BOUND=500
+
+    if (( res > UPPER_BOUND )) || (( res < LOWER_BOUND )); then
+        echo "Sample column DEVICE COMPUTE CB WAIT FRONT [ns] value was $res, not between $UPPER_BOUND, $LOWER_BOUND" 1>&2
+        exit 1
+    else
+        echo "op profiler was generated and the data on the samples column was within range" 1>&2
+    fi
 }
 
 run_post_proc_test(){

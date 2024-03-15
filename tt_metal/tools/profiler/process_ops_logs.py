@@ -271,6 +271,8 @@ def generate_reports(ops, deviceOps, outputFolder, date, nameAppend):
         writer = csv.DictWriter(allOpsCSV, fieldnames=allHeaders)
         writer.writeheader()
         for rowDict in rowDicts:
+            for field, fieldData in rowDict.items():
+                rowDict[field] = str(fieldData).replace(",", ";")
             writer.writerow(rowDict)
     logger.info(f"OPs csv generated at: {allOpsCSVPath}")
 
