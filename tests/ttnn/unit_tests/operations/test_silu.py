@@ -88,7 +88,7 @@ def get_shard_grid_from_num_cores(ncores: Union[int, Tuple[int, int]]) -> ttnn.e
         # [1, 64, 128, 10],
     ],
 )
-@pytest.mark.parametrize("shard_strategy", [ttnn.ShardStrategy.HEIGHT])
+@pytest.mark.parametrize("shard_strategy", [ttnn.ShardStrategy.BLOCK])
 def test_upsample_multi_core(device, input_shape, shard_strategy):
     ## input shape is N C H W
     batch_size, num_channels, height, width = input_shape
@@ -151,6 +151,7 @@ def test_upsample_multi_core(device, input_shape, shard_strategy):
         shard_height = math.ceil(batch_size * height * width / ncores)
         shard_width = num_channels
     shard_shape = (shard_height, shard_width)
+    print(f"shard_shape: {shard_shape}")
     shard_spec = ttnn.experimental.tensor.ShardSpec(shard_grid, shard_shape, shard_orientation, False)
     in_sharded_mem_config = ttnn.MemoryConfig(tensor_memory_layout, ttnn.types.BufferType.L1, shard_spec)
 
@@ -165,9 +166,10 @@ def test_upsample_multi_core(device, input_shape, shard_strategy):
     input_tensor = ttnn.from_torch(tt_input, device=device, memory_config=ttnn.L1_MEMORY_CONFIG)
     input_tensor = ttnn.to_memory_config(input_tensor, memory_config=in_sharded_mem_config)
     # print("input_tensor shape and config: ", input_tensor)
-    print(input_tensor.shape)
+    # print(input_tensor.shape)
     # print(input_tensor)
     output_tensor = ttnn.silu(input_tensor, memory_config=in_sharded_mem_config)
+    # print(output_tensor)
     output_tensor = ttnn.to_memory_config(output_tensor, memory_config=ttnn.L1_MEMORY_CONFIG)
     output_tensor = ttnn.to_torch(output_tensor)
 
