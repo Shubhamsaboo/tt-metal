@@ -8,7 +8,7 @@
 #include "dataflow_api.h"
 #include "debug/dprint.h"
 #include "eth_l1_address_map.h"
-#include "tests/tt_metal/tt_metal/test_kernels/dataflow/unit_tests/erisc/erisc_async_datamover.hpp"
+#include "tt_eager/tt_dnn/op_library/ccl/edm/erisc_async_datamover.hpp"
 
 // Args Schema:
 // 1) handshake addr
@@ -148,7 +148,7 @@ void kernel_main() {
             sender_num_workers,
             sender_num_messages_to_send,
             (volatile tt_l1_ptr uint32_t *const)sender_semaphores_base_address,
-            (const erisc::datamover::WorkerXY *)workers_xy_list_addr,
+            (const ccl::WorkerXY *)workers_xy_list_addr,
             true);
         if (sender_num_messages_to_send == 0) {
             num_senders_with_no_work++;
@@ -179,7 +179,7 @@ void kernel_main() {
             receiver_num_workers,
             receiver_num_messages_to_send,
             (volatile tt_l1_ptr uint32_t *const)receiver_semaphores_base_address,
-            (const erisc::datamover::WorkerXY *)workers_xy_list_addr,
+            (const ccl::WorkerXY *)workers_xy_list_addr,
             false);
 
         if (receiver_num_messages_to_send == 0) {

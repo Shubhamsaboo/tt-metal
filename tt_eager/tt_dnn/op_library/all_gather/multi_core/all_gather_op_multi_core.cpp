@@ -21,6 +21,19 @@ namespace tt {
 
 namespace tt_metal {
 
+// Sharding Kernel Args
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+
 
 std::tuple<CoreRangeSet,CoreRangeSet> select_worker_cores(AllGatherConfig const& all_gather_config, uint32_t num_links, uint32_t link) {
     constexpr uint32_t worker_grid_width = 8;
@@ -51,6 +64,87 @@ std::tuple<CoreRangeSet,CoreRangeSet> select_worker_cores(AllGatherConfig const&
     return {CoreRangeSet(receiver_worker_cores), CoreRangeSet(sender_worker_cores)};
 }
 
+class AllGatherOpTensorConfig {
+   public:
+    AllGatherOpTensorConfig(Tensor const& input_tensor) :
+        df(tt_metal::datatype_to_dataformat_converter(input_tensor.get_dtype()))
+    {}
+
+   protected:
+    uint32_t page_size;
+    DataFormat df;
+};
+
+class AllGatherOpInterleavedTensorConfig final : public AllGatherOpTensorConfig {
+   public:
+    AllGatherOpInterleavedTensorConfig(Tensor const& input_tensor) :
+        AllGatherOpTensorConfig(input_tensor),
+        shard_spec(input_tensor.shard_spec().value()) {
+        if (input_tensor.get_layout() == Layout::TILE) {
+            this->page_size = tt_metal::detail::TileSize(this->df);
+            this->unit_size = page_size;
+        } else {
+            this->unit_size = shard_spec.shape[1] * input_tensor.element_size();
+            this->page_size = input_tensor.get_legacy_shape()[-1] * input_tensor.element_size();
+        }
+    }
+
+   private:
+    uint32_t unit_size;
+    ShardSpec const shard_spec;
+};
+
+class AllGatherOpShardedTensorConfig final : public AllGatherOpTensorConfig {
+   public:
+    AllGatherOpShardedTensorConfig(Tensor const& input_tensor) :
+        AllGatherOpTensorConfig(input_tensor),
+        shard_spec(input_tensor.shard_spec().value()) {
+        if (input_tensor.get_layout() == Layout::TILE) {
+            this->page_size = tt_metal::detail::TileSize(this->df);
+            this->unit_size = page_size;
+        } else {
+            this->unit_size = shard_spec.shape[1] * input_tensor.element_size();
+            this->page_size = input_tensor.get_legacy_shape()[-1] * input_tensor.element_size();
+        }
+    }
+
+   private:
+    uint32_t unit_size;
+    ShardSpec const shard_spec;
+};
+
+    // if (rm) {
+    //     num_cols = input_tensor.get_legacy_shape()[-1];
+    //     auto input_shape = input_tensor.get_legacy_shape();
+    //     auto output_shape = output_tensor.get_legacy_shape();
+    //     num_rows = std::accumulate(input_shape.begin()+dim, input_shape.end() - 1, 1, std::multiplies<uint32_t>());
+    //     row_offset = std::accumulate(output_shape.begin()+dim, output_shape.end() - 1, 1, std::multiplies<uint32_t>()) - num_rows;
+    // } else {
+    //     num_cols = input_tensor.get_legacy_shape()[-1] / TILE_WIDTH;
+    //     auto input_shape = input_tensor.get_legacy_shape();
+    //     auto output_shape = output_tensor.get_legacy_shape();
+    //     uint32_t num_output_cols = output_tensor.get_legacy_shape()[-1] / TILE_WIDTH;
+    //     num_rows = std::accumulate(input_shape.begin()+dim, input_shape.end() - 1, 1, std::multiplies<uint32_t>()) / TILE_HEIGHT;
+    //     row_offset = (std::accumulate(output_shape.begin()+dim, output_shape.end() - 1, 1, std::multiplies<uint32_t>()) / TILE_HEIGHT - num_rows) * num_output_cols;
+    //     col_offset = num_output_cols - num_cols;
+    //     num_tiles = num_rows * num_cols;
+    // }
+
+
+void compute_input_specs() {
+    bool is_sharded = ;
+    // sharded
+    if (is_sharded)
+
+}
+
+void compute_output_specs() {
+
+}
+
+// Want to add a kernel arg assembler which is potentially unique per config
+
+
 operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor& input_tensor, Tensor& output_tensor, const uint32_t dim, const uint32_t num_links, const uint32_t ring_size, const uint32_t ring_index, const chip_id_t receiver_device_id, const chip_id_t sender_device_id) {
 
     tt_metal::Program program{};
@@ -59,6 +153,8 @@ operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor&
     if (enable_print) {
         all_gather_config.print();
     }
+
+    bool is_sharded = input_tensor.is_sharded();
 
     TT_FATAL(input_tensor.buffer()->page_size() <= all_gather_config.get_eth_buffer_size(), "Page size too large");
 
@@ -80,6 +176,13 @@ operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor&
     bool rm = input_tensor.get_layout() == Layout::ROW_MAJOR;
     bool width = input_tensor.get_legacy_shape().rank() - 1 == dim;
     DataFormat df = tt_metal::datatype_to_dataformat_converter(input_tensor.get_dtype());
+
+    uint32_t shard_width = 0;
+    uint32_t shard_height = 0;
+    if (is_sharded) {
+        shard_width =  input_tensor.buffer()->shard_spec().page_shape.back();
+        shard_height = input_tensor.buffer()->shard_spec().page_shape.front();
+    }
 
     std::map<string, string> worker_defines;
     if (rm) {
@@ -143,21 +246,27 @@ operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor&
         num_rows = std::accumulate(input_shape.begin()+dim, input_shape.end() - 1, 1, std::multiplies<uint32_t>());
         row_offset = std::accumulate(output_shape.begin()+dim, output_shape.end() - 1, 1, std::multiplies<uint32_t>()) - num_rows;
     } else {
-        num_cols = input_tensor.get_legacy_shape()[-1] / TILE_WIDTH;
+        uint32_t chunk_width = is_sharded ? shard_width : TILE_WIDTH;
+        uint32_t chunk_height = is_sharded ? shard_height : TILE_HEIGHT;
+
+        num_cols = input_tensor.get_legacy_shape()[-1] / chunk_width;
         auto input_shape = input_tensor.get_legacy_shape();
         auto output_shape = output_tensor.get_legacy_shape();
-        uint32_t num_output_cols = output_tensor.get_legacy_shape()[-1] / TILE_WIDTH;
-        num_rows = std::accumulate(input_shape.begin()+dim, input_shape.end() - 1, 1, std::multiplies<uint32_t>()) / TILE_HEIGHT;
-        row_offset = (std::accumulate(output_shape.begin()+dim, output_shape.end() - 1, 1, std::multiplies<uint32_t>()) / TILE_HEIGHT - num_rows) * num_output_cols;
+        uint32_t num_output_cols = output_tensor.get_legacy_shape()[-1] / chunk_width;
+
+        num_rows = std::accumulate(input_shape.begin()+dim, input_shape.end() - 1, 1, std::multiplies<uint32_t>()) / chunk_height;
+        row_offset = (std::accumulate(output_shape.begin()+dim, output_shape.end() - 1, 1, std::multiplies<uint32_t>()) / chunk_height - num_rows) * num_output_cols;
         col_offset = num_output_cols - num_cols;
         num_tiles = num_rows * num_cols;
+
     }
 
     const auto input_buffer = input_tensor.buffer();
     const auto output_buffer = output_tensor.buffer();
 
-    bool input_is_dram = input_buffer->buffer_type() == BufferType::DRAM;
-    bool output_is_dram = output_buffer->buffer_type() == BufferType::DRAM;
+    // TODO: Move to arg setup
+    bool input_is_dram = !is_sharded && input_buffer->buffer_type() == BufferType::DRAM;
+    bool output_is_dram = !is_sharded && output_buffer->buffer_type() == BufferType::DRAM;
 
     uint32_t input_page_size = input_buffer->page_size();
     uint32_t output_page_size = output_buffer->page_size();
@@ -670,20 +779,62 @@ operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor&
                 worker_writer_receiver_rt_args);
 
             uint32_t pages_per_worker = num_full_chunks_per_worker.at(b) * pages_per_chunk + rem_pages_per_worker.at(b);
-            if (rm) {
-                uint32_t num_rows_shifted = row_idx + pages_per_worker;
-                uint32_t num_blocks_shifted = width ? 0 : num_rows_shifted / num_rows;
-                output_start_page_idx += pages_per_worker + num_blocks_shifted * row_offset;
-                row_idx = width ? 0 : num_rows_shifted % num_rows;
+            if (is_sharded) {
+                if (is_width_sharded) {
+                    // Each (output) WRITER worker needs (worker grid divided into sequential "runs", not necessarily
+                    // spatial rectangles)
+                    // rect_start_x
+                    // rect_end_x
+                    // rect_start_y
+                    // rect_end_y
+                    // per_core_output_shard_base_address
+                    // intra_core_stride
+                    // num output chunks per dest core
+                    //
+                    // Is there a case where we need to stride the same core before advancing to another
+                    output_num_input_shards_per_core = ;
+
+                    // Distance (in bytes) to advance in dest L1 for start offset of next chunk
+                    inter_chunk_stride = ;
+
+                    chunk_size_width = shard_width;
+                    chunk_size_height = shard_height;
+
+
+
+                    row_idx = 0; // We always
+                    col_idx = num_workers ...
+                    col_stride = // (intra)
+                    intra_core_col_stride =
+                    num_chunks_per_dest_core =
+
+                } else if (is_height_sharded) {
+                    // not supported yet
+                } else if (is_block_sharded) {
+                    //
+                } else {
+                    // unknown type of shard type
+                }
+                output_start_page_idx +=
+                col_idx =
+                row_idx =
+                input_start_page_idx +=
             } else {
-                uint32_t num_cols_shifted = col_idx + pages_per_worker;
-                uint32_t num_rows_shifted = num_cols_shifted / num_cols;
-                uint32_t num_blocks_shifted = width ? 0 : num_rows_shifted / num_rows;
-                output_start_page_idx += pages_per_worker + num_rows_shifted * col_offset + num_blocks_shifted * row_offset;
-                col_idx = num_cols_shifted % num_cols;
-                row_idx = width ? 0 : num_rows_shifted % num_rows;
+                if (rm) {
+                    uint32_t num_rows_shifted = row_idx + pages_per_worker;
+                    uint32_t num_blocks_shifted = width ? 0 : num_rows_shifted / num_rows;
+                    output_start_page_idx += pages_per_worker + num_blocks_shifted * row_offset;
+                    row_idx = width ? 0 : num_rows_shifted % num_rows;
+                } else {
+                    uint32_t num_cols_shifted = col_idx + pages_per_worker;
+                    uint32_t num_rows_shifted = num_cols_shifted / num_cols;
+                    uint32_t num_blocks_shifted = width ? 0 : num_rows_shifted / num_rows;
+                    output_start_page_idx += pages_per_worker + num_rows_shifted * col_offset + num_blocks_shifted * row_offset;
+                    col_idx = num_cols_shifted % num_cols;
+                    row_idx = width ? 0 : num_rows_shifted % num_rows;
+                }
+                input_start_page_idx += pages_per_worker;
             }
-            input_start_page_idx += pages_per_worker;
         }
 
         // Ethernet Kernels
@@ -696,7 +847,7 @@ operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor&
 
         auto eth_sender_kernel = tt_metal::CreateKernel(
             program,
-            "tests/tt_metal/tt_metal/test_kernels/dataflow/unit_tests/erisc/erisc_datamover.cpp",
+            "tt_eager/tt_dnn/op_library/ccl/edm/erisc_datamover.cpp",
             eth_sender_cores.at(i),
             tt_metal::EthernetConfig{.noc=sender_noc, .compile_args=eth_sender_ct_args});
 
@@ -718,7 +869,7 @@ operation::ProgramWithCallbacks all_gather_multi_core_with_workers(const Tensor&
 
         auto eth_receiver_kernel = tt_metal::CreateKernel(
             program,
-            "tests/tt_metal/tt_metal/test_kernels/dataflow/unit_tests/erisc/erisc_datamover.cpp",
+            "tt_eager/tt_dnn/op_library/ccl/edm/erisc_datamover.cpp",
             eth_receiver_cores.at(i),
             tt_metal::EthernetConfig{.noc=receiver_noc, .compile_args=eth_receiver_ct_args});
 
